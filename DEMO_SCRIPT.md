@@ -23,11 +23,19 @@ npm install
 npm run dev
 
 # Open in browser
-# http://localhost:3000 - Refunds Dashboard
-# http://localhost:3000/feature-flags - Feature Flags Dashboard
-# http://localhost:3000/kyc - KYC Review Queue
-# http://localhost:3000/compliance - Compliance Dashboard
-# http://localhost:3000/audit-logs - Audit Logs Viewer
+# http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app) - Refunds Dashboard
+# http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/feature-flags - Feature Flags Dashboard
+# http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/kyc - KYC Review Queue
+# http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/compliance - Compliance Dashboard
+# http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/audit-logs - Audit Logs Viewer
+
+# Live Demo (Vercel)
+# https://power-apps-vs-devin-evaluation.vercel.app - Refunds Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/feature-flags - Feature Flags Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/kyc - KYC Review Queue
+# https://power-apps-vs-devin-evaluation.vercel.app/compliance - Compliance Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/audit-logs - Audit Logs Viewer
+# https://power-apps-vs-devin-evaluation.vercel.app/data-connections - Data Connections
 ```
 
 ## Demo Scenarios
@@ -38,7 +46,7 @@ npm run dev
 
 **Steps**:
 1. **Initial View**:
-   - Navigate to http://localhost:3000
+   - Navigate to http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)
    - Observe compliance badges: SOC2 Ready, SoD Enforced, Audit Trail: Immutable, AES-256 Encrypted, TLS 1.3, PII Masking
    - Review stats cards: Total Requests, Pending, Approved, Total Refunded
    - Check compliance status cards: Audit Trail Integrity, SoD Monitoring, Compliance Frameworks
@@ -87,7 +95,7 @@ npm run dev
 
 **Steps**:
 1. **Initial View**:
-   - Navigate to http://localhost:3000/feature-flags
+   - Navigate to http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/feature-flags
    - Observe same compliance badges
    - Review stats: Total, Enabled, Disabled, Percentage Flags
    - Filter by type: Boolean, Percentage, Multivariate
@@ -120,7 +128,7 @@ npm run dev
 
 **Steps**:
 1. **Initial View**:
-   - Navigate to http://localhost:3000/kyc
+   - Navigate to http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/kyc
    - Observe compliance badges: SOC2 Ready, SoD Enforced, Audit Trail: Immutable, AML Compliant
    - Review stats: Total Cases, Pending, Approved, Escalated, SLA Breached
    - Notice SLA Breached card showing overdue cases (highlighted in red)
@@ -164,7 +172,7 @@ npm run dev
 
 **Steps**:
 1. **Overall Compliance Score**:
-   - Navigate to http://localhost:3000/compliance
+   - Navigate to http://localhost:3000 (or https://power-apps-vs-devin-evaluation.vercel.app)/compliance
    - Observe overall compliance score: 88%
    - Review domain-specific scores: Security (95%), Availability (88%), Confidentiality (92%), Processing Integrity (90%), Privacy (75%)
    - Note: Privacy is lower because it's optional for this fintech's business model

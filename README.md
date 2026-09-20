@@ -251,11 +251,19 @@ npm install
 npm run dev
 
 # Open in browser
-# http://localhost:3000 - Refunds Dashboard
-# http://localhost:3000/feature-flags - Feature Flags Dashboard
-# http://localhost:3000/kyc - KYC Review Queue
-# http://localhost:3000/compliance - Compliance Dashboard
-# http://localhost:3000/audit-logs - Audit Logs Viewer
+# Local: http://localhost:3000 - Refunds Dashboard
+# Local: http://localhost:3000/feature-flags - Feature Flags Dashboard
+# Local: http://localhost:3000/kyc - KYC Review Queue
+# Local: http://localhost:3000/compliance - Compliance Dashboard
+# Local: http://localhost:3000/audit-logs - Audit Logs Viewer
+
+# Live Demo (Vercel)
+# https://power-apps-vs-devin-evaluation.vercel.app - Refunds Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/feature-flags - Feature Flags Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/kyc - KYC Review Queue
+# https://power-apps-vs-devin-evaluation.vercel.app/compliance - Compliance Dashboard
+# https://power-apps-vs-devin-evaluation.vercel.app/audit-logs - Audit Logs Viewer
+# https://power-apps-vs-devin-evaluation.vercel.app/data-connections - Data Connections
 ```
 
 ## Demo Script
