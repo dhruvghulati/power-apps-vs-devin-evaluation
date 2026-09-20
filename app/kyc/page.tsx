@@ -313,41 +313,41 @@ export default function KYCReviewQueue() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+        return <Badge className="badge-warning border-0">Pending</Badge>
       case "approved":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
+        return <Badge className="badge-success border-0">Approved</Badge>
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Rejected</Badge>
+        return <Badge className="badge-error border-0">Rejected</Badge>
       case "escalated":
-        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">Escalated</Badge>
+        return <Badge className="badge-warning border-0">Escalated</Badge>
       default:
-        return <Badge>{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const getRiskBadge = (risk: string) => {
     switch (risk) {
       case "high":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">High</Badge>
+        return <Badge className="badge-error border-0">High</Badge>
       case "medium":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Medium</Badge>
+        return <Badge className="badge-warning border-0">Medium</Badge>
       case "low":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Low</Badge>
+        return <Badge className="badge-success border-0">Low</Badge>
       default:
-        return <Badge>{risk}</Badge>
+        return <Badge variant="outline">{risk}</Badge>
     }
   }
 
   const getSanctionsBadge = (status: string) => {
     switch (status) {
       case "clear":
-        return <Badge className="bg-green-100 text-green-800">Clear</Badge>
+        return <Badge className="badge-success border-0">Clear</Badge>
       case "match":
-        return <Badge className="bg-red-100 text-red-800">Match</Badge>
+        return <Badge className="badge-error border-0">Match</Badge>
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
+        return <Badge className="badge-warning border-0">Pending</Badge>
       default:
-        return <Badge>{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
@@ -356,47 +356,42 @@ export default function KYCReviewQueue() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="min-h-screen fintech-gradient">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">KYC Review Queue</h1>
-            <p className="text-slate-600">Compliance-driven identity verification with human-in-the-loop review</p>
+            <h1 className="text-4xl font-bold text-gradient mb-2">KYC Review Queue</h1>
+            <p className="text-muted-foreground text-base">Compliance-driven identity verification with human-in-the-loop review</p>
           </div>
-          <div className="flex gap-3 items-center">
-            {/* Compliance Badges */}
-            <div className="flex gap-2">
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                SOC2 Ready
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                SoD Enforced
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                Audit Trail: Immutable
-              </Badge>
-              <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300">
-                AML Compliant
-              </Badge>
-              <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300">
-                AES-256 Encrypted
-              </Badge>
-              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
-                TLS 1.3
-              </Badge>
-              <Badge className="bg-pink-100 text-pink-800 border-pink-300">
-                PII Masking
-              </Badge>
-            </div>
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Navigation Links */}
+            <nav className="hidden lg:flex gap-2">
+              <Link href="/" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Refunds
+              </Link>
+              <Link href="/data-connections" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Data Connections
+              </Link>
+              <Link href="/compliance" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Compliance
+              </Link>
+              <Link href="/audit-logs" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Audit Logs
+              </Link>
+              <Link href="/feature-flags" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Feature Flags
+              </Link>
+            </nav>
+            
             {/* User Info & Role Switcher */}
-            <div className="flex items-center gap-3 border-l pl-3 border-slate-300">
-              <div className="text-sm">
-                <div className="font-semibold text-slate-900">{currentUser.name}</div>
-                <div className="text-slate-600">{currentUser.roles[0]} • {currentUser.department}</div>
+            <div className="flex items-center gap-3 border-l border-border pl-3">
+              <div className="text-sm text-right">
+                <div className="font-semibold text-foreground">{currentUser.name}</div>
+                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
               </div>
               <Select value={currentUser.id} onValueChange={(value) => { if (value) switchUser(value) }}>
-                <SelectTrigger className="w-[150px] border-slate-300">
+                <SelectTrigger className="w-[140px] h-9 text-sm border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Switch User" />
                 </SelectTrigger>
                 <SelectContent>
@@ -409,55 +404,60 @@ export default function KYCReviewQueue() {
                 </SelectContent>
               </Select>
             </div>
-            <Link href="/compliance" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Compliance →
-            </Link>
-            <Link href="/audit-logs" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Audit Logs →
-            </Link>
-            <Link href="/" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              ← Back to Refunds
-            </Link>
+          </div>
+        </div>
+
+        {/* Compliance Status Banner */}
+        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
+            <Badge className="badge-success border-0">SOC2 Ready</Badge>
+            <Badge className="badge-info border-0">SoD Enforced</Badge>
+            <Badge className="badge-info border-0">Audit Trail: Immutable</Badge>
+            <Badge className="badge-info border-0">AML Compliant</Badge>
+            <Badge className="badge-info border-0">AES-256 Encrypted</Badge>
+            <Badge className="badge-info border-0">TLS 1.3</Badge>
+            <Badge className="badge-info border-0">PII Masking</Badge>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
-          <Card className="border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Cases</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Cases</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+              <div className="text-3xl font-bold text-foreground">{stats.total}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Pending</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Pending</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Approved</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Approved</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Escalated</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Escalated</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-orange-600">{stats.escalated}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">SLA Breached</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">SLA Breached</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-red-600">{stats.slaBreached}</div>
@@ -466,9 +466,9 @@ export default function KYCReviewQueue() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-8 border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+        <Card className="card-shadow border-border mb-8 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Filters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
@@ -477,11 +477,11 @@ export default function KYCReviewQueue() {
                   placeholder="Search by name, email, or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-slate-300"
+                  className="border-border input-focus"
                 />
               </div>
               <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -493,7 +493,7 @@ export default function KYCReviewQueue() {
                 </SelectContent>
               </Select>
               <Select value={filterRisk} onValueChange={(value) => setFilterRisk(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Filter by risk" />
                 </SelectTrigger>
                 <SelectContent>
@@ -508,44 +508,44 @@ export default function KYCReviewQueue() {
         </Card>
 
         {/* Table */}
-        <Card className="mb-8 border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">KYC Cases ({filteredCases.length})</CardTitle>
+        <Card className="card-shadow border-border mb-8 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">KYC Cases ({filteredCases.length})</CardTitle>
             <CardDescription>Human-in-the-loop compliance review with audit trail</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-200">
-                  <TableHead className="text-slate-700">ID</TableHead>
-                  <TableHead className="text-slate-700">Customer</TableHead>
-                  <TableHead className="text-slate-700">Type</TableHead>
-                  <TableHead className="text-slate-700">Risk</TableHead>
-                  <TableHead className="text-slate-700">Sanctions</TableHead>
-                  <TableHead className="text-slate-700">PEP</TableHead>
-                  <TableHead className="text-slate-700">SLA Deadline</TableHead>
-                  <TableHead className="text-slate-700">Status</TableHead>
-                  <TableHead className="text-slate-700">Actions</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-foreground">ID</TableHead>
+                  <TableHead className="text-foreground">Customer</TableHead>
+                  <TableHead className="text-foreground">Type</TableHead>
+                  <TableHead className="text-foreground">Risk</TableHead>
+                  <TableHead className="text-foreground">Sanctions</TableHead>
+                  <TableHead className="text-foreground">PEP</TableHead>
+                  <TableHead className="text-foreground">SLA Deadline</TableHead>
+                  <TableHead className="text-foreground">Status</TableHead>
+                  <TableHead className="text-foreground">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCases.map((kycCase) => (
                   <TableRow 
                     key={kycCase.id} 
-                    className={`border-slate-200 hover:bg-slate-50 transition-colors ${isSLABreached(kycCase.slaDeadline, kycCase.status) ? 'bg-red-50' : ''}`}
+                    className={`border-border hover:bg-white/50 transition-colors ${isSLABreached(kycCase.slaDeadline, kycCase.status) ? 'bg-red-50' : ''}`}
                   >
-                    <TableCell className="font-medium text-slate-900">{kycCase.id}</TableCell>
-                    <TableCell className="text-slate-700">
+                    <TableCell className="font-medium text-foreground">{kycCase.id}</TableCell>
+                    <TableCell className="text-foreground">
                       <div>
                         <div className="font-medium">{kycCase.customerName}</div>
-                        <div className="text-sm text-slate-500">{kycCase.customerEmail}</div>
+                        <div className="text-sm text-muted-foreground">{kycCase.customerEmail}</div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-600 capitalize">{kycCase.businessType}</TableCell>
+                    <TableCell className="text-muted-foreground capitalize">{kycCase.businessType}</TableCell>
                     <TableCell>{getRiskBadge(kycCase.riskLevel)}</TableCell>
                     <TableCell>{getSanctionsBadge(kycCase.sanctionsCheck)}</TableCell>
                     <TableCell>{getSanctionsBadge(kycCase.pepCheck)}</TableCell>
-                    <TableCell className={`text-slate-600 ${isSLABreached(kycCase.slaDeadline, kycCase.status) ? 'text-red-600 font-semibold' : ''}`}>
+                    <TableCell className={`text-muted-foreground ${isSLABreached(kycCase.slaDeadline, kycCase.status) ? 'text-red-600 font-semibold' : ''}`}>
                       {kycCase.slaDeadline}
                       {isSLABreached(kycCase.slaDeadline, kycCase.status) && <div className="text-xs">BREACHED</div>}
                     </TableCell>
@@ -555,16 +555,16 @@ export default function KYCReviewQueue() {
                         <Button
                           size="sm"
                           onClick={() => setSelectedCase(kycCase)}
-                          className="bg-slate-900 hover:bg-slate-800"
+                          className="button-hover h-8 text-xs"
                         >
                           Review
                         </Button>
                       )}
                       {kycCase.status === "pending" && !hasPermission(currentUser, 'kyc:write') && (
-                        <span className="text-sm text-slate-400 italic">No permission</span>
+                        <span className="text-sm text-muted-foreground italic">No permission</span>
                       )}
                       {kycCase.status !== "pending" && (
-                        <span className="text-sm text-slate-500">
+                        <span className="text-sm text-muted-foreground">
                           {kycCase.reviewDate}
                         </span>
                       )}
@@ -578,8 +578,8 @@ export default function KYCReviewQueue() {
 
         {/* Review Modal */}
         {selectedCase && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-2xl border-slate-300 max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-2xl border-border card-shadow max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-sm">
               <CardHeader>
                 <CardTitle className="text-xl">Review KYC Case: {selectedCase.id}</CardTitle>
                 <CardDescription>
@@ -590,8 +590,8 @@ export default function KYCReviewQueue() {
                 <div className="space-y-6">
                   {/* Customer Information */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Customer Information</label>
-                    <div className="text-sm text-slate-600 space-y-1">
+                    <label className="block text-sm font-medium text-foreground mb-2">Customer Information</label>
+                    <div className="text-sm text-muted-foreground space-y-1">
                       <div><strong>Name:</strong> {selectedCase.customerName}</div>
                       <div><strong>Email:</strong> {selectedCase.customerEmail}</div>
                       <div><strong>Business Type:</strong> {selectedCase.businessType}</div>
@@ -601,13 +601,13 @@ export default function KYCReviewQueue() {
 
                   {/* Compliance Checks */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Compliance Checks</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Compliance Checks</label>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded">
                         <span className="text-sm">Sanctions Check</span>
                         {getSanctionsBadge(selectedCase.sanctionsCheck)}
                       </div>
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded">
+                      <div className="flex items-center justify-between p-3 bg-muted rounded">
                         <span className="text-sm">PEP Check</span>
                         {getSanctionsBadge(selectedCase.pepCheck)}
                       </div>
@@ -616,18 +616,18 @@ export default function KYCReviewQueue() {
 
                   {/* Documents */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Documents</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Documents</label>
                     <div className="space-y-2">
                       {selectedCase.documents.map((doc, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded">
+                        <div key={index} className="flex items-center justify-between p-3 bg-muted rounded">
                           <div>
                             <div className="text-sm font-medium">{doc.type}</div>
-                            <div className="text-xs text-slate-500">Uploaded: {doc.uploadedDate}</div>
+                            <div className="text-xs text-muted-foreground">Uploaded: {doc.uploadedDate}</div>
                           </div>
                           <Badge className={
-                            doc.status === 'verified' ? 'bg-green-100 text-green-800' :
-                            doc.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
+                            doc.status === 'verified' ? 'badge-success border-0' :
+                            doc.status === 'rejected' ? 'badge-error border-0' :
+                            'badge-warning border-0'
                           }>
                             {doc.status}
                           </Badge>
@@ -638,8 +638,8 @@ export default function KYCReviewQueue() {
 
                   {/* SLA Information */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">SLA Information</label>
-                    <div className="text-sm text-slate-600 space-y-1">
+                    <label className="block text-sm font-medium text-foreground mb-2">SLA Information</label>
+                    <div className="text-sm text-muted-foreground space-y-1">
                       <div><strong>Request Date:</strong> {selectedCase.requestDate}</div>
                       <div><strong>SLA Deadline:</strong> {selectedCase.slaDeadline}</div>
                       <div><strong>Assigned To:</strong> {selectedCase.assignedTo || 'Unassigned'}</div>
@@ -648,12 +648,12 @@ export default function KYCReviewQueue() {
 
                   {/* Decision Notes */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Decision Notes</label>
+                    <label className="block text-sm font-medium text-foreground mb-2">Decision Notes</label>
                     <Input
                       placeholder="Enter reasoning for decision..."
                       value={decisionNotes}
                       onChange={(e) => setDecisionNotes(e.target.value)}
-                      className="border-slate-300"
+                      className="border-border input-focus"
                     />
                   </div>
 
@@ -661,7 +661,7 @@ export default function KYCReviewQueue() {
                   <div className="flex gap-3 pt-4">
                     <Button 
                       onClick={() => handleApprove(selectedCase.id)}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="button-hover"
                       disabled={!hasPermission(currentUser, 'kyc:approve')}
                     >
                       Approve
@@ -676,7 +676,7 @@ export default function KYCReviewQueue() {
                     <Button 
                       onClick={() => handleEscalate(selectedCase.id)}
                       variant="outline"
-                      className="border-orange-300 text-orange-600 hover:bg-orange-50"
+                      className="border-border text-orange-600 hover:bg-orange-50"
                       disabled={!hasPermission(currentUser, 'kyc:write')}
                     >
                       Escalate to BSA Officer
@@ -687,7 +687,7 @@ export default function KYCReviewQueue() {
                         setSelectedCase(null)
                         setDecisionNotes("")
                       }}
-                      className="border-slate-300"
+                      className="border-border"
                     >
                       Cancel
                     </Button>

@@ -275,68 +275,66 @@ export default function RefundsDashboard() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">Pending</Badge>
+        return <Badge className="badge-warning border-0">Pending</Badge>
       case "approved":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-200">Approved</Badge>
+        return <Badge className="badge-success border-0">Approved</Badge>
       case "rejected":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-200">Rejected</Badge>
+        return <Badge className="badge-error border-0">Rejected</Badge>
       default:
-        return <Badge>{status}</Badge>
+        return <Badge variant="outline">{status}</Badge>
     }
   }
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "high":
-        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">High</Badge>
+        return <Badge className="badge-error border-0">High</Badge>
       case "medium":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Medium</Badge>
+        return <Badge className="badge-warning border-0">Medium</Badge>
       case "low":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">Low</Badge>
+        return <Badge className="badge-info border-0">Low</Badge>
       default:
-        return <Badge>{priority}</Badge>
+        return <Badge variant="outline">{priority}</Badge>
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="min-h-screen fintech-gradient">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">Refunds Dashboard</h1>
-            <p className="text-slate-600">Manage and process refund requests efficiently</p>
+            <h1 className="text-4xl font-bold text-gradient mb-2">Refunds Dashboard</h1>
+            <p className="text-muted-foreground text-base">Manage and process refund requests efficiently</p>
           </div>
-          <div className="flex gap-3 items-center">
-            {/* Compliance Badges */}
-            <div className="flex gap-2">
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                SOC2 Ready
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                SoD Enforced
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                Audit Trail: Immutable
-              </Badge>
-              <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300">
-                AES-256 Encrypted
-              </Badge>
-              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
-                TLS 1.3
-              </Badge>
-              <Badge className="bg-pink-100 text-pink-800 border-pink-300">
-                PII Masking
-              </Badge>
-            </div>
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Navigation Links */}
+            <nav className="hidden lg:flex gap-2">
+              <Link href="/kyc" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                KYC Queue
+              </Link>
+              <Link href="/data-connections" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Data Connections
+              </Link>
+              <Link href="/compliance" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Compliance
+              </Link>
+              <Link href="/audit-logs" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Audit Logs
+              </Link>
+              <Link href="/feature-flags" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Feature Flags
+              </Link>
+            </nav>
+            
             {/* User Info & Role Switcher */}
-            <div className="flex items-center gap-3 border-l pl-3 border-slate-300">
-              <div className="text-sm">
-                <div className="font-semibold text-slate-900">{currentUser.name}</div>
-                <div className="text-slate-600">{currentUser.roles[0]} • {currentUser.department}</div>
+            <div className="flex items-center gap-3 border-l border-border pl-3">
+              <div className="text-sm text-right">
+                <div className="font-semibold text-foreground">{currentUser.name}</div>
+                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
               </div>
               <Select value={currentUser.id} onValueChange={(value) => { if (value) switchUser(value) }}>
-                <SelectTrigger className="w-[150px] border-slate-300">
+                <SelectTrigger className="w-[140px] h-9 text-sm border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Switch User" />
                 </SelectTrigger>
                 <SelectContent>
@@ -349,21 +347,10 @@ export default function RefundsDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <Link href="/kyc" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              KYC Queue →
-            </Link>
-            <Link href="/compliance" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Compliance →
-            </Link>
-            <Link href="/audit-logs" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Audit Logs →
-            </Link>
-            <Link href="/feature-flags" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Feature Flags →
-            </Link>
+            
             <Button 
               onClick={exportData} 
-              className="bg-slate-900 hover:bg-slate-800"
+              className="button-hover h-9 px-4 text-sm font-medium"
               disabled={!hasPermission(currentUser, 'refund:export')}
             >
               Export CSV
@@ -371,99 +358,112 @@ export default function RefundsDashboard() {
           </div>
         </div>
 
+        {/* Compliance Status Banner */}
+        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
+            <Badge className="badge-success border-0">SOC2 Ready</Badge>
+            <Badge className="badge-info border-0">SoD Enforced</Badge>
+            <Badge className="badge-info border-0">Audit Trail: Immutable</Badge>
+            <Badge className="badge-info border-0">AES-256 Encrypted</Badge>
+            <Badge className="badge-info border-0">TLS 1.3</Badge>
+            <Badge className="badge-info border-0">PII Masking</Badge>
+          </div>
+        </div>
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Requests</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Requests</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+              <div className="text-3xl font-bold text-foreground">{stats.total}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Pending</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Pending</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-yellow-600">{stats.pending}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Approved</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Approved</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-600">{stats.approved}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Refunded</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Refunded</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">${stats.totalAmount.toFixed(2)}</div>
+              <div className="text-3xl font-bold text-foreground">${stats.totalAmount.toFixed(2)}</div>
             </CardContent>
           </Card>
         </div>
 
         {/* Compliance Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Card className="border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+          <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Audit Trail Integrity</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Audit Trail Integrity</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-2">
                 {chainStatus?.valid ? (
-                  <Badge className="bg-green-100 text-green-800">Verified</Badge>
+                  <Badge className="badge-success border-0">Verified</Badge>
                 ) : (
-                  <Badge className="bg-red-100 text-red-800">Warning</Badge>
+                  <Badge className="badge-error border-0">Warning</Badge>
                 )}
-                <span className="text-sm text-slate-600">{chainStatus?.message || 'Checking...'}</span>
+                <span className="text-sm text-foreground">{chainStatus?.message || 'Checking...'}</span>
               </div>
-              <div className="text-xs text-slate-500 mt-2">
+              <div className="text-xs text-muted-foreground">
                 Events: {chainStatus?.totalEvents || 0} • Retention: {chainStatus?.retentionYears || 7} years
               </div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">SoD Monitoring</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">SoD Monitoring</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-2">
                 {sodStatus?.monitoringActive ? (
-                  <Badge className="bg-green-100 text-green-800">Active</Badge>
+                  <Badge className="badge-success border-0">Active</Badge>
                 ) : (
-                  <Badge className="bg-yellow-100 text-yellow-800">Inactive</Badge>
+                  <Badge className="badge-warning border-0">Inactive</Badge>
                 )}
-                <span className="text-sm text-slate-600">Last check: {sodStatus?.lastCheck ? new Date(sodStatus.lastCheck).toLocaleTimeString() : 'Never'}</span>
+                <span className="text-sm text-foreground">Last check: {sodStatus?.lastCheck ? new Date(sodStatus.lastCheck).toLocaleTimeString() : 'Never'}</span>
               </div>
-              <div className="text-xs text-slate-500 mt-2">
+              <div className="text-xs text-muted-foreground">
                 Violations: {sodStatus?.violations.length || 0} • Users with conflicts: {sodStatus?.usersWithConflicts || 0}
               </div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Compliance Frameworks</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Compliance Frameworks</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-1">
-                <Badge className="bg-blue-100 text-blue-800">SOC2</Badge>
-                <Badge className="bg-purple-100 text-purple-800">DORA</Badge>
-                <Badge className="bg-orange-100 text-orange-800">PCI DSS</Badge>
-                <Badge className="bg-cyan-100 text-cyan-800">GDPR</Badge>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge className="badge-info border-0">SOC2</Badge>
+                <Badge className="badge-info border-0">DORA</Badge>
+                <Badge className="badge-warning border-0">PCI DSS</Badge>
+                <Badge className="badge-info border-0">GDPR</Badge>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="mb-8 border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+        <Card className="card-shadow border-border mb-8 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Filters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
@@ -472,11 +472,11 @@ export default function RefundsDashboard() {
                   placeholder="Search by name, email, or ID..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-slate-300"
+                  className="input-focus border-border bg-white/50"
                 />
               </div>
               <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/50 input-focus">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -487,7 +487,7 @@ export default function RefundsDashboard() {
                 </SelectContent>
               </Select>
               <Select value={filterPriority} onValueChange={(value) => setFilterPriority(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/50 input-focus">
                   <SelectValue placeholder="Filter by priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -502,52 +502,52 @@ export default function RefundsDashboard() {
         </Card>
 
         {/* Table */}
-        <Card className="border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Refund Requests ({filteredRefunds.length})</CardTitle>
-            <CardDescription>Review and process refund requests</CardDescription>
+        <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Refund Requests ({filteredRefunds.length})</CardTitle>
+            <CardDescription className="text-sm">Review and process refund requests</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-200">
-                  <TableHead className="text-slate-700">ID</TableHead>
-                  <TableHead className="text-slate-700">Customer</TableHead>
-                  <TableHead className="text-slate-700">Email</TableHead>
-                  <TableHead className="text-slate-700">Amount</TableHead>
-                  <TableHead className="text-slate-700">Reason</TableHead>
-                  <TableHead className="text-slate-700">Priority</TableHead>
-                  <TableHead className="text-slate-700">Status</TableHead>
-                  <TableHead className="text-slate-700">Request Date</TableHead>
-                  <TableHead className="text-slate-700">Actions</TableHead>
+                <TableRow className="border-border bg-muted/30">
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">ID</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Reason</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Priority</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Request Date</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRefunds.map((refund) => (
-                  <TableRow key={refund.id} className="border-slate-200 hover:bg-slate-50 transition-colors">
-                    <TableCell className="font-medium text-slate-900">{refund.id}</TableCell>
-                    <TableCell className="text-slate-700">{refund.customerName}</TableCell>
-                    <TableCell className="text-slate-600">{refund.customerEmail}</TableCell>
-                    <TableCell className="font-semibold text-slate-900">${refund.amount.toFixed(2)} {refund.currency}</TableCell>
-                    <TableCell className="text-slate-700">{refund.reason}</TableCell>
+                  <TableRow key={refund.id} className="border-border table-row-hover">
+                    <TableCell className="font-medium text-foreground text-sm">{refund.id}</TableCell>
+                    <TableCell className="text-foreground text-sm">{refund.customerName}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{refund.customerEmail}</TableCell>
+                    <TableCell className="font-semibold text-foreground text-sm">${refund.amount.toFixed(2)} {refund.currency}</TableCell>
+                    <TableCell className="text-foreground text-sm">{refund.reason}</TableCell>
                     <TableCell>{getPriorityBadge(refund.priority)}</TableCell>
                     <TableCell>{getStatusBadge(refund.status)}</TableCell>
-                    <TableCell className="text-slate-600">{refund.requestDate}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{refund.requestDate}</TableCell>
                     <TableCell>
                       {refund.status === "pending" && hasPermission(currentUser, 'refund:write') && (
                         <Button
                           size="sm"
                           onClick={() => setSelectedRefund(refund)}
-                          className="bg-slate-900 hover:bg-slate-800"
+                          className="button-hover h-8 px-3 text-xs font-medium"
                         >
                           Review
                         </Button>
                       )}
                       {refund.status === "pending" && !hasPermission(currentUser, 'refund:write') && (
-                        <span className="text-sm text-slate-400 italic">No permission</span>
+                        <span className="text-xs text-muted-foreground italic">No permission</span>
                       )}
                       {refund.status !== "pending" && (
-                        <span className="text-sm text-slate-500">
+                        <span className="text-xs text-muted-foreground">
                           {refund.processedDate}
                         </span>
                       )}
@@ -561,47 +561,48 @@ export default function RefundsDashboard() {
 
         {/* Review Modal */}
         {selectedRefund && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-            <Card className="w-full max-w-lg border-slate-300">
-              <CardHeader>
-                <CardTitle className="text-xl">Review Refund: {selectedRefund.id}</CardTitle>
-                <CardDescription>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+            <Card className="w-full max-w-lg card-shadow border-border bg-white">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl font-semibold">Review Refund: {selectedRefund.id}</CardTitle>
+                <CardDescription className="text-base">
                   {selectedRefund.customerName} - ${selectedRefund.amount.toFixed(2)} {selectedRefund.currency}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Customer Email</label>
-                    <p className="text-sm text-slate-600">{selectedRefund.customerEmail}</p>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Customer Email</label>
+                    <p className="text-sm text-muted-foreground">{selectedRefund.customerEmail}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Reason</label>
-                    <p className="text-sm text-slate-600">{selectedRefund.reason}</p>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Reason</label>
+                    <p className="text-sm text-muted-foreground">{selectedRefund.reason}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Priority</label>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Priority</label>
                     {getPriorityBadge(selectedRefund.priority)}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Decision Notes</label>
+                    <label className="block text-sm font-semibold text-foreground mb-1.5">Decision Notes</label>
                     <Input
                       placeholder="Enter reasoning for decision..."
                       value={decisionNotes}
                       onChange={(e) => setDecisionNotes(e.target.value)}
-                      className="border-slate-300"
+                      className="input-focus border-border"
                     />
                   </div>
                   <div className="flex gap-3 pt-4">
                     <Button 
                       onClick={() => handleApprove(selectedRefund.id)}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="button-hover flex-1 bg-green-600 hover:bg-green-700 text-white"
                     >
                       Approve
                     </Button>
                     <Button 
                       variant="destructive"
                       onClick={() => handleReject(selectedRefund.id)}
+                      className="button-hover flex-1"
                     >
                       Reject
                     </Button>
@@ -611,7 +612,7 @@ export default function RefundsDashboard() {
                         setSelectedRefund(null)
                         setDecisionNotes("")
                       }}
-                      className="border-slate-300"
+                      className="button-hover border-border"
                     >
                       Cancel
                     </Button>

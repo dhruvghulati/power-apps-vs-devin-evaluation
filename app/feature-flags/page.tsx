@@ -178,70 +178,68 @@ export default function FeatureFlagsDashboard() {
   const getTypeBadge = (type: string) => {
     switch (type) {
       case "boolean":
-        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">Boolean</Badge>
+        return <Badge className="badge-info border-0">Boolean</Badge>
       case "percentage":
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">Percentage</Badge>
+        return <Badge className="badge-success border-0">Percentage</Badge>
       case "multivariate":
-        return <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200">Multivariate</Badge>
+        return <Badge className="badge-warning border-0">Multivariate</Badge>
       default:
-        return <Badge>{type}</Badge>
+        return <Badge variant="outline">{type}</Badge>
     }
   }
 
   const getCategoryBadge = (category: string) => {
     switch (category) {
       case "product":
-        return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">Product</Badge>
+        return <Badge className="badge-success border-0">Product</Badge>
       case "infrastructure":
-        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">Infrastructure</Badge>
+        return <Badge className="badge-warning border-0">Infrastructure</Badge>
       case "compliance":
-        return <Badge className="bg-rose-100 text-rose-800 hover:bg-rose-200">Compliance</Badge>
+        return <Badge className="badge-error border-0">Compliance</Badge>
       case "user-experience":
-        return <Badge className="bg-cyan-100 text-cyan-800 hover:bg-cyan-200">UX</Badge>
+        return <Badge className="badge-info border-0">UX</Badge>
       default:
-        return <Badge>{category}</Badge>
+        return <Badge variant="outline">{category}</Badge>
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="min-h-screen fintech-gradient">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">Feature Flags Dashboard</h1>
-            <p className="text-slate-600">Manage feature rollouts and experiments</p>
+            <h1 className="text-4xl font-bold text-gradient mb-2">Feature Flags Dashboard</h1>
+            <p className="text-muted-foreground text-base">Manage feature rollouts and experiments</p>
           </div>
-          <div className="flex gap-3 items-center">
-            {/* Compliance Badges */}
-            <div className="flex gap-2">
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                SOC2 Ready
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                SoD Enforced
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                Audit Trail: Immutable
-              </Badge>
-              <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300">
-                AES-256 Encrypted
-              </Badge>
-              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
-                TLS 1.3
-              </Badge>
-              <Badge className="bg-pink-100 text-pink-800 border-pink-300">
-                PII Masking
-              </Badge>
-            </div>
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Navigation Links */}
+            <nav className="hidden lg:flex gap-2">
+              <Link href="/kyc" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                KYC Queue
+              </Link>
+              <Link href="/data-connections" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Data Connections
+              </Link>
+              <Link href="/compliance" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Compliance
+              </Link>
+              <Link href="/audit-logs" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Audit Logs
+              </Link>
+              <Link href="/" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Refunds
+              </Link>
+            </nav>
+            
             {/* User Info & Role Switcher */}
-            <div className="flex items-center gap-3 border-l pl-3 border-slate-300">
-              <div className="text-sm">
-                <div className="font-semibold text-slate-900">{currentUser.name}</div>
-                <div className="text-slate-600">{currentUser.roles[0]} • {currentUser.department}</div>
+            <div className="flex items-center gap-3 border-l border-border pl-3">
+              <div className="text-sm text-right">
+                <div className="font-semibold text-foreground">{currentUser.name}</div>
+                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
               </div>
               <Select value={currentUser.id} onValueChange={(value) => { if (value) switchUser(value) }}>
-                <SelectTrigger className="w-[150px] border-slate-300">
+                <SelectTrigger className="w-[140px] h-9 text-sm border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Switch User" />
                 </SelectTrigger>
                 <SelectContent>
@@ -254,17 +252,9 @@ export default function FeatureFlagsDashboard() {
                 </SelectContent>
               </Select>
             </div>
-            <Link href="/compliance" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Compliance →
-            </Link>
-            <Link href="/audit-logs" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              Audit Logs →
-            </Link>
-            <Link href="/" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              ← Back to Refunds
-            </Link>
+            
             <Button 
-              className="bg-slate-900 hover:bg-slate-800"
+              className="button-hover h-9 px-4 text-sm font-medium"
               disabled={!hasPermission(currentUser, 'flag:create')}
             >
               + New Flag
@@ -272,35 +262,48 @@ export default function FeatureFlagsDashboard() {
           </div>
         </div>
 
+        {/* Compliance Status Banner */}
+        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
+            <Badge className="badge-success border-0">SOC2 Ready</Badge>
+            <Badge className="badge-info border-0">SoD Enforced</Badge>
+            <Badge className="badge-info border-0">Audit Trail: Immutable</Badge>
+            <Badge className="badge-info border-0">AES-256 Encrypted</Badge>
+            <Badge className="badge-info border-0">TLS 1.3</Badge>
+            <Badge className="badge-info border-0">PII Masking</Badge>
+          </div>
+        </div>
+
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="border-slate-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Total Flags</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Flags</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+              <div className="text-3xl font-bold text-foreground">{stats.total}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Enabled</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Enabled</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-green-600">{stats.enabled}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Disabled</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Disabled</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-slate-600">{stats.disabled}</div>
+              <div className="text-3xl font-bold text-muted-foreground">{stats.disabled}</div>
             </CardContent>
           </Card>
-          <Card className="border-slate-200">
+          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Percentage Flags</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Percentage Flags</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-blue-600">{stats.percentageFlags}</div>
@@ -309,9 +312,9 @@ export default function FeatureFlagsDashboard() {
         </div>
 
         {/* Filters */}
-        <Card className="mb-8 border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+        <Card className="card-shadow border-border mb-8 bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Filters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
@@ -320,11 +323,11 @@ export default function FeatureFlagsDashboard() {
                   placeholder="Search by name or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-slate-300"
+                  className="input-focus border-border bg-white/50"
                 />
               </div>
               <Select value={filterType} onValueChange={(value) => setFilterType(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/50 input-focus">
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -335,7 +338,7 @@ export default function FeatureFlagsDashboard() {
                 </SelectContent>
               </Select>
               <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/50 input-focus">
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>
                 <SelectContent>
@@ -351,45 +354,45 @@ export default function FeatureFlagsDashboard() {
         </Card>
 
         {/* Table */}
-        <Card className="border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Feature Flags ({filteredFlags.length})</CardTitle>
-            <CardDescription>Control feature rollouts and experiments</CardDescription>
+        <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base font-semibold">Feature Flags ({filteredFlags.length})</CardTitle>
+            <CardDescription className="text-sm">Control feature rollouts and experiments</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-200">
-                  <TableHead className="text-slate-700">ID</TableHead>
-                  <TableHead className="text-slate-700">Name</TableHead>
-                  <TableHead className="text-slate-700">Description</TableHead>
-                  <TableHead className="text-slate-700">Type</TableHead>
-                  <TableHead className="text-slate-700">Category</TableHead>
-                  <TableHead className="text-slate-700">Target</TableHead>
-                  <TableHead className="text-slate-700">Status</TableHead>
-                  <TableHead className="text-slate-700">Rollout</TableHead>
-                  <TableHead className="text-slate-700">Last Modified</TableHead>
-                  <TableHead className="text-slate-700">Actions</TableHead>
+                <TableRow className="border-border bg-muted/30">
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">ID</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Description</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Type</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Category</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Target</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Rollout</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Last Modified</TableHead>
+                  <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredFlags.map((flag) => (
-                  <TableRow key={flag.id} className="border-slate-200 hover:bg-slate-50 transition-colors">
-                    <TableCell className="font-medium text-slate-900">{flag.id}</TableCell>
-                    <TableCell className="font-semibold text-slate-900">{flag.name}</TableCell>
-                    <TableCell className="text-slate-700">{flag.description}</TableCell>
+                  <TableRow key={flag.id} className="border-border table-row-hover">
+                    <TableCell className="font-medium text-foreground text-sm">{flag.id}</TableCell>
+                    <TableCell className="font-semibold text-foreground text-sm">{flag.name}</TableCell>
+                    <TableCell className="text-foreground text-sm">{flag.description}</TableCell>
                     <TableCell>{getTypeBadge(flag.type)}</TableCell>
                     <TableCell>{getCategoryBadge(flag.category)}</TableCell>
-                    <TableCell className="text-slate-600">{flag.targetUsers}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{flag.targetUsers}</TableCell>
                     <TableCell>
-                      <Badge variant={flag.enabled ? "default" : "secondary"} className={flag.enabled ? "bg-green-600" : "bg-slate-400"}>
+                      <Badge variant={flag.enabled ? "default" : "secondary"} className={flag.enabled ? "badge-success border-0" : "bg-muted text-muted-foreground border-0"}>
                         {flag.enabled ? "Enabled" : "Disabled"}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       {flag.type === "percentage" && flag.percentage !== undefined && (
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-900">{flag.percentage}%</span>
+                          <span className="font-semibold text-foreground text-sm">{flag.percentage}%</span>
                           <Input
                             type="range"
                             min="0"
@@ -401,19 +404,19 @@ export default function FeatureFlagsDashboard() {
                         </div>
                       )}
                       {flag.type === "multivariate" && (
-                        <span className="text-sm text-slate-600">{flag.variants?.join(", ")}</span>
+                        <span className="text-sm text-muted-foreground">{flag.variants?.join(", ")}</span>
                       )}
                       {flag.type === "boolean" && (
-                        <span className="text-sm text-slate-500">N/A</span>
+                        <span className="text-sm text-muted-foreground">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-slate-600">{flag.lastModified}</TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{flag.lastModified}</TableCell>
                     <TableCell>
                       <Button
                         size="sm"
                         variant={flag.enabled ? "destructive" : "default"}
                         onClick={() => toggleFlag(flag.id)}
-                        className={flag.enabled ? "bg-red-600 hover:bg-red-700" : "bg-slate-900 hover:bg-slate-800"}
+                        className={flag.enabled ? "button-hover bg-red-600 hover:bg-red-700 h-8 px-3 text-xs" : "button-hover h-8 px-3 text-xs"}
                       >
                         {flag.enabled ? "Disable" : "Enable"}
                       </Button>
