@@ -195,6 +195,18 @@ export default function DataConnections() {
           </div>
         </div>
 
+        {/* Compliance Status Banner */}
+        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
+            <Badge className="badge-success border-0">SOC2 Ready</Badge>
+            <Badge className="badge-info border-0">SoD Enforced</Badge>
+            <Badge className="badge-info border-0">Audit Trail: Immutable</Badge>
+            <Badge className="badge-info border-0">AES-256 Encrypted</Badge>
+            <Badge className="badge-info border-0">TLS 1.3</Badge>
+          </div>
+        </div>
+
         {/* MCP Integration Banner */}
         <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
           <div className="flex items-start gap-4">
@@ -202,7 +214,7 @@ export default function DataConnections() {
             <div className="flex-1">
               <h3 className="font-semibold text-foreground mb-1">MCP-Based Data Connectivity</h3>
               <p className="text-sm text-muted-foreground">
-                Devin uses Model Context Protocol (MCP) to connect to PostgreSQL, SQL Server, Snowflake, BigQuery, Redshift, and MySQL. 
+                Devin uses Model Context Protocol (MCP) to connect to PostgreSQL, SQL Server, Snowflake, BigQuery, Redshift, and MySQL.
                 Connectors provide natural language querying and schema introspection capabilities.
               </p>
             </div>
@@ -435,13 +447,6 @@ export default function DataConnections() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Navigation */}
-        <div className="flex gap-3">
-          <Link href="/" className="inline-flex items-center px-4 py-2 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-            ← Back to Refunds
-          </Link>
-        </div>
       </div>
     </div>
   )

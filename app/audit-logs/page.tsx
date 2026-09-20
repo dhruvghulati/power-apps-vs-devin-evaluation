@@ -39,16 +39,16 @@ export default function AuditLogsViewer() {
 
   const getEventTypeBadge = (eventType: string) => {
     const colors: Record<string, string> = {
-      'refund.approved': 'bg-green-100 text-green-800',
-      'refund.rejected': 'bg-red-100 text-red-800',
-      'refund.exported': 'bg-blue-100 text-blue-800',
-      'flag.toggled': 'bg-purple-100 text-purple-800',
-      'user.login': 'bg-cyan-100 text-cyan-800',
-      'role.assigned': 'bg-orange-100 text-orange-800',
-      'sod.blocked': 'bg-red-100 text-red-800',
-      'sod.resolved': 'bg-green-100 text-green-800'
+      'refund.approved': 'badge-success border-0',
+      'refund.rejected': 'badge-error border-0',
+      'refund.exported': 'badge-info border-0',
+      'flag.toggled': 'badge-info border-0',
+      'user.login': 'badge-info border-0',
+      'role.assigned': 'badge-warning border-0',
+      'sod.blocked': 'badge-error border-0',
+      'sod.resolved': 'badge-success border-0'
     }
-    return colors[eventType] || 'bg-gray-100 text-gray-800'
+    return colors[eventType] || 'badge-info border-0'
   }
 
   const formatJson = (data: any) => {
@@ -89,92 +89,108 @@ export default function AuditLogsViewer() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="container mx-auto p-8 max-w-7xl">
+    <div className="min-h-screen fintech-gradient">
+      <div className="container mx-auto px-6 py-8 max-w-7xl">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-slate-900 mb-2">Audit Logs</h1>
-            <p className="text-slate-600">Immutable event-sourced audit trail with cryptographic integrity</p>
+            <h1 className="text-4xl font-bold text-gradient mb-2">Audit Logs</h1>
+            <p className="text-muted-foreground text-base">Immutable event-sourced audit trail with cryptographic integrity</p>
           </div>
-          <div className="flex gap-3 items-center">
-            <div className="flex gap-2">
-              <Badge className="bg-green-100 text-green-800 border-green-300">
-                SOC2 Ready
-              </Badge>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
-                Immutable
-              </Badge>
-              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
-                7-Year Retention
-              </Badge>
-            </div>
-            <div className="flex items-center gap-3 border-l pl-3 border-slate-300">
-              <div className="text-sm">
-                <div className="font-semibold text-slate-900">{currentUser.name}</div>
-                <div className="text-slate-600">{currentUser.roles[0]} • {currentUser.department}</div>
+          <div className="flex flex-wrap gap-3 items-center">
+            {/* Navigation Links */}
+            <nav className="hidden lg:flex gap-2">
+              <Link href="/" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Refunds
+              </Link>
+              <Link href="/feature-flags" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Feature Flags
+              </Link>
+              <Link href="/kyc" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                KYC Queue
+              </Link>
+              <Link href="/compliance" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Compliance
+              </Link>
+              <Link href="/data-connections" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
+                Data Connections
+              </Link>
+            </nav>
+            
+            {/* User Info & Actions */}
+            <div className="flex items-center gap-3 border-l border-border pl-3">
+              <div className="text-sm text-right">
+                <div className="font-semibold text-foreground">{currentUser.name}</div>
+                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
               </div>
               <Button
                 variant="outline"
                 onClick={() => setShowPii(!showPii)}
-                className="border-slate-300"
+                className="border-border"
               >
                 {showPii ? 'Hide PII' : 'Show PII'}
               </Button>
               <Button
                 onClick={exportAuditLogs}
-                className="bg-slate-900 hover:bg-slate-800"
+                className="button-hover"
                 disabled={!hasPermission(currentUser, 'audit:export')}
               >
                 Export
               </Button>
             </div>
-            <Link href="/" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-              ← Back to Refunds
-            </Link>
+          </div>
+        </div>
+
+        {/* Compliance Status Banner */}
+        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
+            <Badge className="badge-success border-0">SOC2 Ready</Badge>
+            <Badge className="badge-info border-0">Immutable</Badge>
+            <Badge className="badge-info border-0">7-Year Retention</Badge>
           </div>
         </div>
 
         {/* Chain Integrity Status */}
-        <Card className="mb-8 border-slate-200">
+        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Chain Integrity Verification</CardTitle>
+            <CardTitle className="text-base font-semibold">Chain Integrity Verification</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <div className="text-sm text-slate-600">Chain Status</div>
+                <div className="text-sm text-muted-foreground">Chain Status</div>
                 <div className="flex items-center gap-2">
                   {chainStatus?.valid ? (
-                    <Badge className="bg-green-100 text-green-800">Verified</Badge>
+                    <Badge className="badge-success border-0">Verified</Badge>
                   ) : (
-                    <Badge className="bg-red-100 text-red-800">Warning</Badge>
+                    <Badge className="badge-error border-0">Warning</Badge>
                   )}
-                  <span className="text-sm text-slate-600">{chainStatus?.message || 'Checking...'}</span>
+                  <span className="text-sm text-muted-foreground">{chainStatus?.message || 'Checking...'}</span>
                 </div>
               </div>
               <div>
-                <div className="text-sm text-slate-600">Total Events</div>
-                <div className="text-lg font-semibold text-slate-900">{chainStatus?.totalEvents || 0}</div>
+                <div className="text-sm text-muted-foreground">Total Events</div>
+                <div className="text-lg font-semibold text-foreground">{chainStatus?.totalEvents || 0}</div>
               </div>
               <div>
-                <div className="text-sm text-slate-600">Latest Hash</div>
-                <div className="text-sm font-mono text-slate-900 truncate" title={chainStatus?.latestHash}>
+                <div className="text-sm text-muted-foreground">Latest Hash</div>
+                <div className="text-sm font-mono text-foreground truncate" title={chainStatus?.latestHash}>
                   {chainStatus?.latestHash?.substring(0, 16)}...
                 </div>
               </div>
               <div>
-                <div className="text-sm text-slate-600">Storage Compliance</div>
-                <div className="text-sm text-slate-900">{chainStatus?.storageCompliance}</div>
+                <div className="text-sm text-muted-foreground">Storage Compliance</div>
+                <div className="text-sm text-foreground">{chainStatus?.storageCompliance}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Filters */}
-        <Card className="mb-8 border-slate-200">
+        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Filters</CardTitle>
+            <CardTitle className="text-base font-semibold">Filters</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
@@ -183,11 +199,11 @@ export default function AuditLogsViewer() {
                   placeholder="Search by event type or actor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border-slate-300"
+                  className="border-border input-focus"
                 />
               </div>
               <Select value={filterEventType} onValueChange={(value) => setFilterEventType(value || 'all')}>
-                <SelectTrigger className="w-[200px] border-slate-300">
+                <SelectTrigger className="w-[200px] border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Filter by event type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -202,7 +218,7 @@ export default function AuditLogsViewer() {
                 </SelectContent>
               </Select>
               <Select value={filterActor} onValueChange={(value) => setFilterActor(value || 'all')}>
-                <SelectTrigger className="w-[180px] border-slate-300">
+                <SelectTrigger className="w-[180px] border-border bg-white/80 backdrop-blur-sm">
                   <SelectValue placeholder="Filter by actor" />
                 </SelectTrigger>
                 <SelectContent>
@@ -219,28 +235,28 @@ export default function AuditLogsViewer() {
         </Card>
 
         {/* Audit Events Table */}
-        <Card className="mb-8 border-slate-200">
+        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Audit Events ({filteredEvents.length})</CardTitle>
+            <CardTitle className="text-base font-semibold">Audit Events ({filteredEvents.length})</CardTitle>
             <CardDescription>Immutable event-sourced audit trail with before/after state capture</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="border-slate-200">
-                  <TableHead className="text-slate-700">Timestamp</TableHead>
-                  <TableHead className="text-slate-700">Event Type</TableHead>
-                  <TableHead className="text-slate-700">Actor</TableHead>
-                  <TableHead className="text-slate-700">Role</TableHead>
-                  <TableHead className="text-slate-700">Data Before</TableHead>
-                  <TableHead className="text-slate-700">Data After</TableHead>
-                  <TableHead className="text-slate-700">Hash</TableHead>
+                <TableRow className="border-border">
+                  <TableHead className="text-foreground">Timestamp</TableHead>
+                  <TableHead className="text-foreground">Event Type</TableHead>
+                  <TableHead className="text-foreground">Actor</TableHead>
+                  <TableHead className="text-foreground">Role</TableHead>
+                  <TableHead className="text-foreground">Data Before</TableHead>
+                  <TableHead className="text-foreground">Data After</TableHead>
+                  <TableHead className="text-foreground">Hash</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEvents.map((event) => (
-                  <TableRow key={event.id} className="border-slate-200 hover:bg-slate-50">
-                    <TableCell className="text-slate-600">
+                  <TableRow key={event.id} className="border-border table-row-hover">
+                    <TableCell className="text-muted-foreground">
                       {new Date(event.timestamp).toLocaleString()}
                     </TableCell>
                     <TableCell>
@@ -248,21 +264,21 @@ export default function AuditLogsViewer() {
                         {event.eventType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-slate-700">
+                    <TableCell className="text-foreground">
                       {showPii ? event.actorEmail : redactPII(event.actorEmail)}
                     </TableCell>
-                    <TableCell className="text-slate-600">{event.actorRole}</TableCell>
-                    <TableCell className="text-slate-600">
+                    <TableCell className="text-muted-foreground">{event.actorRole}</TableCell>
+                    <TableCell className="text-muted-foreground">
                       <div className="text-xs font-mono max-w-xs truncate" title={formatJson(event.dataBefore)}>
                         {event.dataBefore ? formatJson(event.dataBefore).substring(0, 50) + '...' : '—'}
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-600">
+                    <TableCell className="text-muted-foreground">
                       <div className="text-xs font-mono max-w-xs truncate" title={formatJson(event.dataAfter)}>
                         {event.dataAfter ? formatJson(event.dataAfter).substring(0, 50) + '...' : '—'}
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-600">
+                    <TableCell className="text-muted-foreground">
                       <div className="text-xs font-mono truncate" title={event.hash}>
                         {event.hash.substring(0, 12)}...
                       </div>
@@ -275,40 +291,30 @@ export default function AuditLogsViewer() {
         </Card>
 
         {/* Retention Information */}
-        <Card className="mb-8 border-slate-200">
+        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-lg">Retention Requirements</CardTitle>
+            <CardTitle className="text-base font-semibold">Retention Requirements</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <div className="text-sm text-slate-600">SOX Section 404</div>
-                <div className="text-lg font-semibold text-slate-900">7 years</div>
-                <div className="text-xs text-slate-500">US public companies</div>
+                <div className="text-sm text-muted-foreground">SOX Section 404</div>
+                <div className="text-lg font-semibold text-foreground">7 years</div>
+                <div className="text-xs text-muted-foreground">US public companies</div>
               </div>
               <div>
-                <div className="text-sm text-slate-600">SEC Rule 17a-4</div>
-                <div className="text-lg font-semibold text-slate-900">6 years (2 hot/warm)</div>
-                <div className="text-xs text-slate-500">Broker-dealers</div>
+                <div className="text-sm text-muted-foreground">SEC Rule 17a-4</div>
+                <div className="text-lg font-semibold text-foreground">6 years (2 hot/warm)</div>
+                <div className="text-xs text-muted-foreground">Broker-dealers</div>
               </div>
               <div>
-                <div className="text-sm text-slate-600">MiFID II</div>
-                <div className="text-lg font-semibold text-slate-900">5 years</div>
-                <div className="text-xs text-slate-500">EU investment firms</div>
+                <div className="text-sm text-muted-foreground">MiFID II</div>
+                <div className="text-lg font-semibold text-foreground">5 years</div>
+                <div className="text-xs text-muted-foreground">EU investment firms</div>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Navigation */}
-        <div className="flex gap-3">
-          <Link href="/compliance" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-            ← Back to Compliance
-          </Link>
-          <Link href="/" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
-            Back to Refunds
-          </Link>
-        </div>
       </div>
     </div>
   )
