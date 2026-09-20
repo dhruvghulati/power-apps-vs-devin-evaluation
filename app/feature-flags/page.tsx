@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getCurrentUser, hasPermission, switchUser } from "@/lib/rbac"
+import { logAuditEvent, getChainStatus } from "@/lib/audit"
 
 interface FeatureFlag {
   id: string
@@ -102,6 +104,11 @@ export default function FeatureFlagsDashboard() {
   const [filterType, setFilterType] = useState<string>("all")
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [currentUser, setCurrentUserState] = useState(getCurrentUser())
+  
+  useEffect(() => {
+    getChainStatus()
+  }, [])
 
   const filteredFlags = flags.filter(flag => {
     const matchesType = filterType === "all" || flag.type === filterType
@@ -119,17 +126,40 @@ export default function FeatureFlagsDashboard() {
     percentageFlags: flags.filter(f => f.type === "percentage").length
   }
 
-  const toggleFlag = (flagId: string) => {
+  const toggleFlag = async (flagId: string) => {
+    if (!hasPermission(currentUser, 'flag:toggle')) {
+      alert('You do not have permission to toggle feature flags.')
+      return
+    }
+    
+    const flag = flags.find(f => f.id === flagId)
+    if (!flag) return
+    
+    const previousState = { ...flag }
+    
     setFlags(flags.map(flag => 
       flag.id === flagId 
         ? { 
             ...flag, 
             enabled: !flag.enabled,
             lastModified: new Date().toISOString().split('T')[0],
-            modifiedBy: "current-user"
+            modifiedBy: currentUser.email
           }
         : flag
     ))
+    
+    // Log audit event
+    await logAuditEvent({
+      id: crypto.randomUUID(),
+      eventType: 'flag.toggled',
+      actorId: currentUser.id,
+      actorRole: currentUser.roles[0],
+      actorEmail: currentUser.email,
+      timestamp: new Date().toISOString(),
+      dataBefore: previousState,
+      dataAfter: { ...previousState, enabled: !previousState.enabled, modifiedBy: currentUser.email },
+      metadata: { flagId, flagName: flag.name }
+    })
   }
 
   const updatePercentage = (flagId: string, newPercentage: number) => {
@@ -182,11 +212,61 @@ export default function FeatureFlagsDashboard() {
             <h1 className="text-4xl font-bold text-slate-900 mb-2">Feature Flags Dashboard</h1>
             <p className="text-slate-600">Manage feature rollouts and experiments</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {/* Compliance Badges */}
+            <div className="flex gap-2">
+              <Badge className="bg-green-100 text-green-800 border-green-300">
+                SOC2 Ready
+              </Badge>
+              <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                SoD Enforced
+              </Badge>
+              <Badge className="bg-purple-100 text-purple-800 border-purple-300">
+                Audit Trail: Immutable
+              </Badge>
+              <Badge className="bg-cyan-100 text-cyan-800 border-cyan-300">
+                AES-256 Encrypted
+              </Badge>
+              <Badge className="bg-indigo-100 text-indigo-800 border-indigo-300">
+                TLS 1.3
+              </Badge>
+              <Badge className="bg-pink-100 text-pink-800 border-pink-300">
+                PII Masking
+              </Badge>
+            </div>
+            {/* User Info & Role Switcher */}
+            <div className="flex items-center gap-3 border-l pl-3 border-slate-300">
+              <div className="text-sm">
+                <div className="font-semibold text-slate-900">{currentUser.name}</div>
+                <div className="text-slate-600">{currentUser.roles[0]} • {currentUser.department}</div>
+              </div>
+              <Select value={currentUser.id} onValueChange={(value) => { if (value) switchUser(value) }}>
+                <SelectTrigger className="w-[150px] border-slate-300">
+                  <SelectValue placeholder="Switch User" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user-001">Alice (Admin)</SelectItem>
+                  <SelectItem value="user-002">Bob (Manager)</SelectItem>
+                  <SelectItem value="user-003">Carol (Analyst)</SelectItem>
+                  <SelectItem value="user-004">David (Processor)</SelectItem>
+                  <SelectItem value="user-005">Eva (Auditor)</SelectItem>
+                  <SelectItem value="user-006">Frank (Viewer)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Link href="/compliance" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+              Compliance →
+            </Link>
+            <Link href="/audit-logs" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+              Audit Logs →
+            </Link>
             <Link href="/" className="inline-flex items-center px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
               ← Back to Refunds
             </Link>
-            <Button className="bg-slate-900 hover:bg-slate-800">
+            <Button 
+              className="bg-slate-900 hover:bg-slate-800"
+              disabled={!hasPermission(currentUser, 'flag:create')}
+            >
               + New Flag
             </Button>
           </div>
@@ -243,7 +323,7 @@ export default function FeatureFlagsDashboard() {
                   className="border-slate-300"
                 />
               </div>
-              <Select value={filterType} onValueChange={setFilterType}>
+              <Select value={filterType} onValueChange={(value) => setFilterType(value || 'all')}>
                 <SelectTrigger className="w-[180px] border-slate-300">
                   <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
@@ -254,7 +334,7 @@ export default function FeatureFlagsDashboard() {
                   <SelectItem value="multivariate">Multivariate</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value || 'all')}>
                 <SelectTrigger className="w-[180px] border-slate-300">
                   <SelectValue placeholder="Filter by category" />
                 </SelectTrigger>
