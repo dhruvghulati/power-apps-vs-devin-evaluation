@@ -141,7 +141,7 @@ export function ComponentRenderer({
           {source}
           <div className="flex h-28 items-end gap-2">
             {kpis.map((kpi) => (
-              <div key={kpi.label} className="flex flex-1 flex-col items-center gap-1">
+              <div key={kpi.label} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
                 <div className="w-full rounded-t-md bg-primary/80 transition-all" style={{ height: `${Math.max(6, ((typeof kpi.value === "number" ? kpi.value : 0) / max) * 100)}%` }} />
                 <div className="truncate text-[10px] text-muted-foreground" title={kpi.label}>
                   {kpi.label}
@@ -237,10 +237,11 @@ export function ComponentRenderer({
 }
 
 function kpisFromRows(rows: Record<string, unknown>[]): { label: string; value: number }[] {
-  const key = ["status", "stage", "sanctions", "risk", "variant", "record_class"].find((candidate) => rows.some((row) => typeof row[candidate] === "string"))
+  const key = ["status", "stage", "sanctions", "risk", "variant", "record_class", "entity", "category", "channel", "scheme"].find((candidate) => rows.some((row) => typeof row[candidate] === "string"))
   if (!key) return [{ label: "Rows", value: rows.length }]
+  const measure = ["refunds", "count", "events", "volume"].find((candidate) => rows.some((row) => typeof row[candidate] === "number"))
   const counts = new Map<string, number>()
-  for (const row of rows) counts.set(String(row[key]), (counts.get(String(row[key])) ?? 0) + 1)
+  for (const row of rows) counts.set(String(row[key]), (counts.get(String(row[key])) ?? 0) + (measure ? Number(row[measure]) || 0 : 1))
   return [...counts.entries()].slice(0, 6).map(([label, value]) => ({ label, value }))
 }
 
