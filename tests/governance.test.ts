@@ -101,6 +101,15 @@ describe('audit chain', () => {
     expect(status.valid).toBe(false)
     expect(status.brokenAtSeq).toBe(events[events.length - 2].seq)
   })
+
+  it('stays valid when a live object passed to the audit is mutated afterwards', () => {
+    const actor = user('usr_frank')
+    const refund = db().refunds[0]
+    appendAudit({ eventType: 'refund.viewed', actor, resource: 'refund', resourceId: refund.id, outcome: 'allow', after: refund })
+    actor.roles.push('manager')
+    refund.status = 'approved'
+    expect(verifyChain().valid).toBe(true)
+  })
 })
 
 describe('document encryption', () => {

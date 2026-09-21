@@ -1,5 +1,6 @@
 import { handler, HttpError, readJson, required } from '@/lib/server/api'
 import { randomId } from '@/lib/server/crypto'
+import { sampleEvents } from '@/lib/server/flows'
 import { db, timestamp } from '@/lib/server/store'
 import { triggerCatalog } from '@/lib/server/studio'
 import type { Flow, FlowStep, TriggerType } from '@/lib/server/studio-types'
@@ -13,6 +14,7 @@ export const GET = handler(async ({ authorize }) => {
     runs: store.flowRuns.slice(0, 50),
     tasks: store.flowTasks.slice(0, 50),
     triggers: triggerCatalog,
+    samples: sampleEvents(),
     connectors: store.connectors.map(({ id, name, topic }) => ({ id, name, topic })),
   })
 })

@@ -69,6 +69,19 @@ export function handler(fn: Handler) {
       return await fn(actor, request, params)
     } catch (error) {
       if (error instanceof HttpError) {
+        // Every refusal is evidence: policy denials are audited in authorize(); route-level
+        // control checks either audit themselves (and tag `control`) or are captured here.
+        if (error.status === 403 && !error.details?.policy && !error.details?.control) {
+          appendAudit({
+            eventType: 'request.denied',
+            actor: user,
+            resource: 'system',
+            outcome: 'deny',
+            reason: error.message,
+            ipAddress: ip,
+            metadata: { path: new URL(request.url).pathname, method: request.method },
+          })
+        }
         return Response.json({ error: error.message, ...error.details }, { status: error.status })
       }
       appendAudit({

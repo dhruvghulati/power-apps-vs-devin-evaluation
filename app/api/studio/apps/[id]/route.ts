@@ -33,7 +33,7 @@ export const PATCH = handler(async ({ user, authorize, audit }, request, params)
     throw new HttpError(403, 'Only the app owner or a platform administrator can edit this app.')
 
   const body = await readJson<PatchBody>(request)
-  const before = { name: app.name, screens: app.screens.length, audienceRoles: app.audienceRoles, connectors: app.connectors }
+  const before = { name: app.name, screens: app.screens.length, audienceRoles: app.audienceRoles, connectors: app.connectors, status: app.status }
 
   if (body.name) app.name = body.name
   if (body.description) app.description = body.description
@@ -41,6 +41,13 @@ export const PATCH = handler(async ({ user, authorize, audit }, request, params)
   if (body.audienceRoles) app.audienceRoles = body.audienceRoles
   if (body.connectors) app.connectors = body.connectors
   if (body.environment) app.environment = body.environment
+  // Any change to what the app exposes invalidates its published state: the solution
+  // checker must pass again before the audience sees the new version.
+  const exposureChanged = Boolean(body.screens || body.audienceRoles || body.connectors || body.environment)
+  if (app.status === 'published' && exposureChanged) {
+    app.status = 'draft'
+    app.publishedAt = undefined
+  }
   app.updatedAt = timestamp()
 
   audit({
@@ -49,7 +56,7 @@ export const PATCH = handler(async ({ user, authorize, audit }, request, params)
     resourceId: app.id,
     outcome: 'allow',
     before,
-    after: { name: app.name, screens: app.screens.length, audienceRoles: app.audienceRoles, connectors: app.connectors },
+    after: { name: app.name, screens: app.screens.length, audienceRoles: app.audienceRoles, connectors: app.connectors, status: app.status },
   })
   return Response.json({ app, checks: checkApp(app) })
 })
@@ -90,8 +97,11 @@ export const POST = handler(async ({ user, authorize, audit }, request, params) 
     })
     throw new HttpError(409, 'Solution checker blocked publish.', { checks })
   }
-  if (app.environment === 'production' && app.owner === user.id && !user.roles.includes('admin'))
-    throw new HttpError(403, 'Production publish requires an independent approver: ask a platform administrator or MLRO to publish.')
+  if (app.environment === 'production' && app.owner === user.id && !user.roles.includes('admin')) {
+    const reason = 'Production publish requires an independent approver: ask a platform administrator or MLRO to publish.'
+    audit({ eventType: 'app.publish.denied', resource: 'app', resourceId: app.id, outcome: 'deny', reason, metadata: { control: 'sod.independent_publisher' } })
+    throw new HttpError(403, reason, { control: 'sod.independent_publisher' })
+  }
 
   app.status = 'published'
   app.version += 1

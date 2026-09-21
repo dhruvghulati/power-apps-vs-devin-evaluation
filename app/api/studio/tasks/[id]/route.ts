@@ -1,4 +1,5 @@
 import { found, handler, HttpError, readJson, required } from '@/lib/server/api'
+import { resumeRun } from '@/lib/server/flows'
 import { db, timestamp } from '@/lib/server/store'
 
 interface DecisionBody {
@@ -24,14 +25,7 @@ export const POST = handler(async ({ user, authorize, audit }, request, params) 
   task.status = body.decision
   task.decidedBy = user.id
   task.decidedAt = timestamp()
-  if (run) {
-    run.status = body.decision === 'approved' ? 'completed' : 'stopped'
-    const step = run.steps.find((candidate) => candidate.kind === 'approval')
-    if (step) {
-      step.outcome = body.decision === 'approved' ? 'executed' : 'stopped'
-      step.detail = `${body.decision} by ${user.email}: ${body.notes}`
-    }
-  }
+  if (run) resumeRun(run, task, body.decision, user.email, body.notes)
 
   audit({
     eventType: `flow.task_${body.decision}`,

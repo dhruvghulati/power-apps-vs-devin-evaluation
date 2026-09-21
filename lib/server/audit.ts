@@ -31,16 +31,16 @@ export function appendAudit(input: AuditInput): AuditEvent {
     eventType: input.eventType,
     actorId: input.actor.id,
     actorEmail: input.actor.email,
-    actorRoles: input.actor.roles,
+    actorRoles: snapshot(input.actor.roles),
     resource: input.resource,
     resourceId: input.resourceId,
     outcome: input.outcome,
     reason: input.reason,
     timestamp: timestamp(),
     ipAddress: input.ipAddress ?? '127.0.0.1',
-    before: input.before ?? null,
-    after: input.after ?? null,
-    metadata: input.metadata,
+    before: snapshot(input.before ?? null),
+    after: snapshot(input.after ?? null),
+    metadata: input.metadata === undefined ? undefined : snapshot(input.metadata),
     previousHash,
   }
   const event: AuditEvent = { ...base, hash: sha256(canonical(base)) }
@@ -51,6 +51,16 @@ export function appendAudit(input: AuditInput): AuditEvent {
 
 function canonical(value: unknown): string {
   return JSON.stringify(value, (_key, v) => (v instanceof Map ? [...v.entries()] : v))
+}
+
+/**
+ * Audit records must be immutable once hashed. Callers pass live domain objects
+ * (a user's roles array, a refund), so we persist a detached copy of exactly the
+ * bytes that were hashed rather than a reference that later mutations would alter.
+ */
+function snapshot<T>(value: T): T {
+  if (value === null || value === undefined) return value
+  return JSON.parse(canonical(value)) as T
 }
 
 export interface ChainStatus {

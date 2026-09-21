@@ -1,12 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Database, KeyRound, Lock, Plug, ShieldCheck } from "lucide-react"
+import { KeyRound, Lock, Plug, ShieldCheck } from "lucide-react"
 import { PageHeader } from "@/components/app-shell"
 import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
 import { useSession } from "@/components/session-provider"
 import { formatCell } from "@/components/studio/component-renderer"
 import type { DataSystem, EntityDefinition } from "@/components/studio/types"
+import { VendorMark } from "@/components/vendor-mark"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -116,19 +117,17 @@ export default function ConnectionsPage() {
                   <Card key={system.id} className={env && !env.allowed ? "border-destructive/40" : ""}>
                     <CardContent className="space-y-3 p-4">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2">
-                          <div className="rounded-md bg-primary/10 p-2">
-                            <Database className="size-4 text-primary" />
-                          </div>
+                        <div className="flex items-start gap-3">
+                          <VendorMark name={system.vendor} size={38} />
                           <div>
                             <div className="text-sm font-medium">{system.name}</div>
                             <div className="text-[11px] text-muted-foreground">{system.vendor}</div>
+                            <div className="mt-0.5 text-[10px] text-muted-foreground/80">{system.protocol} · {system.auth}</div>
                           </div>
                         </div>
                         <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS[system.status]}`}>{system.status}</span>
                       </div>
                       <div className="flex flex-wrap gap-1 text-[10px]">
-                        <Badge variant="outline">{system.protocol}</Badge>
                         <Badge variant="outline">
                           <KeyRound className="mr-1 size-3" /> {system.auth}
                         </Badge>
@@ -249,6 +248,7 @@ export default function ConnectionsPage() {
                   {(streams.data?.connectors ?? []).map((connector) => (
                     <div key={connector.id} className="space-y-0.5 px-3 py-2">
                       <div className="flex items-center gap-2">
+                        <VendorMark name={connector.kind} size={22} />
                         <span className="font-medium">{connector.name}</span>
                         <span className={`rounded-md px-1.5 py-0.5 text-[10px] ${STATUS[connector.status as keyof typeof STATUS] ?? ""}`}>{connector.status}</span>
                         <span className="ml-auto text-[10px] text-muted-foreground">{connector.eventsToday} today · DLQ {connector.dlqDepth}</span>

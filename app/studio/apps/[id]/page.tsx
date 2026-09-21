@@ -52,8 +52,14 @@ export default function GeneratedAppPage() {
     setSaving(true)
     setFeedback(null)
     try {
-      await apiSend(`/api/studio/apps/${appId}`, "PATCH", draft)
-      setFeedback({ kind: "success", message: "Draft saved. Changes are audited with before/after snapshots." })
+      const result = await apiSend<{ app: { status: string } }>(`/api/studio/apps/${appId}`, "PATCH", draft)
+      setFeedback({
+        kind: "success",
+        message:
+          app?.status === "published" && result.app.status === "draft"
+            ? "Draft saved. The app is unpublished until the solution checker passes again and it is re-published."
+            : "Draft saved. Changes are audited with before/after snapshots.",
+      })
       await reload()
     } catch (caught) {
       setFeedback({ kind: "denied", message: caught instanceof Error ? caught.message : "Request failed" })

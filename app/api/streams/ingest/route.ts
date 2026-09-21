@@ -24,7 +24,8 @@ export async function POST(request: Request): Promise<Response> {
     resourceId: event.id,
     outcome: accepted ? 'allow' : 'deny',
     reason: event.error,
-    metadata: { topic: connector.topic, signatureValid: event.signatureValid },
+    after: accepted ? event.payload : undefined,
+    metadata: { topic: connector.topic, connectorId: connector.id, signatureValid: event.signatureValid },
   })
 
   return Response.json({ event }, { status: accepted ? 202 : 401 })

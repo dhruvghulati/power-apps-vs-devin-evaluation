@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { ComponentRenderer } from "@/components/studio/component-renderer"
+import type { ComponentInstance, MakerApp as RuntimeApp } from "@/components/studio/types"
 import { apiSend, relative, useApi } from "@/lib/client/api"
 
 interface Template {
@@ -30,6 +32,7 @@ interface ComponentDefinition {
   category: string
   requiredPermission: string
   governance: string[]
+  props: { key: string; label: string; type: "text" | "resource" | "binding" | "columns" | "number" | "boolean" }[]
 }
 
 interface MakerApp {
@@ -53,6 +56,18 @@ interface StudioPayload {
   templates: Template[]
   components: ComponentDefinition[]
   connectors: { id: string; name: string; kind: string; topic: string; status: string }[]
+}
+
+/** Live demo bindings — each library entry renders against real governed data. */
+const DEMO_PROPS: Record<string, Record<string, unknown>> = {
+  queue_table: { resource: "refunds", pageSize: 4 },
+  kpi_strip: { resource: "refunds" },
+  approval_panel: { resource: "refunds" },
+  document_uploader: {},
+  audit_trail: {},
+  record_form: { binding: "sys_crm.cases" },
+  chart: { binding: "sys_warehouse.refund_metrics" },
+  filter_bar: {},
 }
 
 export default function StudioPage() {
@@ -163,27 +178,48 @@ export default function StudioPage() {
           {!can("app:build") ? <Notice kind="info">Your roles can open apps but not build them.</Notice> : null}
         </Section>
 
-        <Section title="Component library" description="Every component carries the controls it enforces wherever a maker drops it — governance is a property of the component, not of the maker's discipline.">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {(data?.components ?? []).map((component) => (
-              <Card key={component.id}>
-                <CardContent className="space-y-2 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-xs font-medium">{component.name}</div>
-                    <Badge variant="outline" className="text-[10px]">
-                      {component.category}
-                    </Badge>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">{component.description}</div>
-                  <div className="font-mono text-[10px] text-muted-foreground">requires {component.requiredPermission}</div>
-                  <ul className="space-y-0.5 text-[11px] text-muted-foreground">
-                    {component.governance.map((control) => (
-                      <li key={control}>· {control}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            ))}
+        <Section
+          title="Component library"
+          description="Not icons — each tile below is a live instance rendering governed data right now, with the controls it enforces wherever a maker drops it."
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            {(data?.components ?? []).map((component) => {
+              const demoApp = data?.apps.find((app) => app.resource === "refunds") ?? data?.apps[0]
+              const demoInstance: ComponentInstance = { instanceId: `demo_${component.id}`, componentId: component.id, props: DEMO_PROPS[component.id] ?? {} }
+              return (
+                <Card key={component.id}>
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-sm font-medium">{component.name}</div>
+                      <div className="flex items-center gap-1.5">
+                        <Badge variant="secondary" className="text-[10px]">
+                          live data
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px]">
+                          {component.category}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{component.description}</div>
+                    <div className="rounded-lg border border-border bg-muted/20 p-3">
+                      {demoApp ? (
+                        <ComponentRenderer app={demoApp as RuntimeApp} instance={demoInstance} definition={component} compact />
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Loading runtime…</div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 font-mono text-[10px] text-muted-foreground">
+                      requires {component.requiredPermission}
+                      {component.governance.map((control) => (
+                        <Badge key={control} variant="outline" className="font-sans text-[9px]">
+                          {control}
+                        </Badge>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </Section>
       </div>

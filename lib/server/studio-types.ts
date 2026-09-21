@@ -84,10 +84,16 @@ export type TriggerType =
   | 'stream.event_accepted'
   | 'schedule.daily'
 
+export type LookupResource = 'refund' | 'kyc_case' | 'payment' | 'flag' | 'connector'
+
 export type FlowStep =
   | { id: string; kind: 'condition'; field: string; operator: 'gt' | 'lt' | 'eq' | 'contains'; value: string }
   | { id: string; kind: 'approval'; approverRole: RoleId; slaHours: number }
   | { id: string; kind: 'action'; action: 'notify' | 'create_task' | 'kill_flag' | 'escalate_case' | 'post_stream'; target: string; message: string }
+  /** Enrich the run context with a governed record (Power Automate "Get a row"). PII is masked. */
+  | { id: string; kind: 'lookup'; resource: LookupResource; keyField: string; as: string }
+  /** Compute new fields from the context. Expressions interpolate {{path}} and evaluate arithmetic. */
+  | { id: string; kind: 'transform'; assignments: { field: string; expression: string }[] }
 
 export interface Flow {
   id: string
@@ -107,24 +113,42 @@ export interface Flow {
 export interface FlowRunStep {
   stepId: string
   kind: FlowStep['kind']
-  outcome: 'passed' | 'stopped' | 'executed' | 'awaiting_approval'
+  label: string
+  outcome: 'passed' | 'stopped' | 'executed' | 'awaiting_approval' | 'failed' | 'skipped'
   detail: string
+  /** Context as the step saw it. */
+  input: Record<string, unknown>
+  /** Context after the step ran (conditions/approvals pass input through; lookups and transforms add fields). */
+  output: Record<string, unknown>
+  /** Fields the step added or changed, for a compact diff in the designer. */
+  changed: string[]
+  durationMs: number
 }
 
 export interface FlowRun {
   id: string
   flowId: string
+  flowName: string
+  trigger: TriggerType
+  mode: 'test' | 'live'
   triggeredBy: string
   triggerEventId: string
   startedAt: string
+  finishedAt?: string
   status: 'completed' | 'stopped' | 'awaiting_approval' | 'failed'
+  input: Record<string, unknown>
+  output: Record<string, unknown>
+  /** Snapshot of the step definitions this run executed, so later edits to the flow cannot change what a paused run resumes into. */
+  definition: FlowStep[]
   steps: FlowRunStep[]
 }
 
 export interface FlowTask {
   id: string
   flowRunId: string
+  stepId: string
   title: string
+  summary: string
   approverRole: RoleId
   dueAt: string
   status: 'open' | 'approved' | 'rejected'

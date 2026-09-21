@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ArrowDown, Bell, CheckSquare, GitBranch, GripVertical, Play, Plus, Trash2, Zap } from "lucide-react"
+import { ArrowDown, Bell, Braces, CheckSquare, ChevronRight, Clock, Database, GitBranch, GripVertical, Play, Plus, RotateCcw, Trash2, Zap } from "lucide-react"
 import { PageHeader } from "@/components/app-shell"
 import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
 import { useSession } from "@/components/session-provider"
@@ -12,8 +12,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { apiSend, relative, useApi } from "@/lib/client/api"
 
+type Context = Record<string, unknown>
+
 type FlowStep =
   | { id: string; kind: "condition"; field: string; operator: "gt" | "lt" | "eq" | "contains"; value: string }
+  | { id: string; kind: "lookup"; resource: string; keyField: string; as: string }
+  | { id: string; kind: "transform"; assignments: { field: string; expression: string }[] }
   | { id: string; kind: "approval"; approverRole: string; slaHours: number }
   | { id: string; kind: "action"; action: "notify" | "create_task" | "kill_flag" | "escalate_case" | "post_stream"; target: string; message: string }
 
@@ -32,20 +36,38 @@ interface Flow {
   lastRunAt?: string
 }
 
+interface FlowRunStep {
+  stepId: string
+  kind: FlowStep["kind"]
+  label: string
+  outcome: "passed" | "stopped" | "executed" | "awaiting_approval" | "failed" | "skipped"
+  detail: string
+  input: Context
+  output: Context
+  changed: string[]
+  durationMs: number
+}
+
 interface FlowRun {
   id: string
   flowId: string
+  flowName: string
+  mode: "test" | "live"
   triggeredBy: string
   triggerEventId: string
   startedAt: string
   status: "completed" | "stopped" | "awaiting_approval" | "failed"
-  steps: { stepId: string; kind: FlowStep["kind"]; outcome: string; detail: string }[]
+  input: Context
+  output: Context
+  steps: FlowRunStep[]
 }
 
 interface FlowTask {
   id: string
   flowRunId: string
+  stepId: string
   title: string
+  summary: string
   approverRole: string
   dueAt: string
   status: "open" | "approved" | "rejected"
@@ -58,6 +80,7 @@ interface FlowsPayload {
   tasks: FlowTask[]
   triggers: { id: string; label: string; description: string }[]
   connectors: { id: string; name: string; topic: string }[]
+  samples: Record<string, Context>
 }
 
 const ACTIONS = [
@@ -68,7 +91,14 @@ const ACTIONS = [
   { id: "post_stream", label: "Publish to connector", targetLabel: "Connector id" },
 ] as const
 
-const SAMPLE_FIELDS = ["amountMinor", "currency", "entity", "priority", "status", "riskRating", "sanctions", "topic"]
+const LOOKUP_RESOURCES = [
+  { id: "refund", label: "Refund record" },
+  { id: "kyc_case", label: "KYC case" },
+  { id: "payment", label: "Payment" },
+  { id: "flag", label: "Feature flag" },
+  { id: "connector", label: "Stream connector" },
+] as const
+
 const MIME_STEP = "application/x-northwind-step"
 const MIME_STEP_INSTANCE = "application/x-northwind-step-instance"
 
@@ -76,12 +106,16 @@ const newId = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(
 
 function blankStep(kind: FlowStep["kind"]): FlowStep {
   if (kind === "condition") return { id: newId("stp"), kind, field: "amountMinor", operator: "gt", value: "100000" }
+  if (kind === "lookup") return { id: newId("stp"), kind, resource: "refund", keyField: "refundId", as: "refund" }
+  if (kind === "transform") return { id: newId("stp"), kind, assignments: [{ field: "amountMajor", expression: "{{amountMinor}} / 100" }] }
   if (kind === "approval") return { id: newId("stp"), kind, approverRole: "manager", slaHours: 4 }
-  return { id: newId("stp"), kind, action: "notify", target: "#ops-refunds", message: "Flow triggered" }
+  return { id: newId("stp"), kind, action: "notify", target: "#ops-refunds", message: "Flow {{run.id}} triggered" }
 }
 
 function describe(step: FlowStep): string {
   if (step.kind === "condition") return `${step.field} ${step.operator} ${step.value}`
+  if (step.kind === "lookup") return `${step.resource} where ${step.keyField} → ${step.as}`
+  if (step.kind === "transform") return step.assignments.map((a) => `${a.field} = ${a.expression}`).join("; ") || "no assignments"
   if (step.kind === "approval") return `${step.approverRole} · ${step.slaHours}h SLA`
   return `${ACTIONS.find((action) => action.id === step.action)?.label ?? step.action} → ${step.target}`
 }
@@ -89,10 +123,33 @@ function describe(step: FlowStep): string {
 type FlowDraft = Pick<Flow, "name" | "description" | "trigger" | "steps" | "environment">
 
 const STEP_META = {
-  condition: { icon: GitBranch, tone: "border-sky-500/40 bg-sky-500/5", label: "Condition" },
-  approval: { icon: CheckSquare, tone: "border-amber-500/40 bg-amber-500/5", label: "Approval" },
-  action: { icon: Bell, tone: "border-emerald-500/40 bg-emerald-500/5", label: "Action" },
+  lookup: { icon: Database, tone: "border-violet-500/40 bg-violet-500/5", hint: "Pull a governed record into context" },
+  condition: { icon: GitBranch, tone: "border-sky-500/40 bg-sky-500/5", hint: "Stop unless the context matches" },
+  transform: { icon: Braces, tone: "border-fuchsia-500/40 bg-fuchsia-500/5", hint: "Derive fields from the context" },
+  approval: { icon: CheckSquare, tone: "border-amber-500/40 bg-amber-500/5", hint: "Human maker-checker gate" },
+  action: { icon: Bell, tone: "border-emerald-500/40 bg-emerald-500/5", hint: "Notify, escalate, kill, publish" },
 } as const
+
+const OUTCOME_TONE: Record<string, string> = {
+  passed: "text-emerald-600 border-emerald-500/40 bg-emerald-500/10",
+  executed: "text-emerald-600 border-emerald-500/40 bg-emerald-500/10",
+  stopped: "text-amber-600 border-amber-500/40 bg-amber-500/10",
+  awaiting_approval: "text-amber-600 border-amber-500/40 bg-amber-500/10",
+  failed: "text-red-600 border-red-500/40 bg-red-500/10",
+  skipped: "text-muted-foreground border-border bg-muted/40",
+}
+
+function flattenKeys(value: unknown, prefix = "", depth = 0): string[] {
+  if (value === null || typeof value !== "object" || Array.isArray(value) || depth > 2) return []
+  return Object.entries(value as Context).flatMap(([key, nested]) => {
+    const path = prefix ? `${prefix}.${key}` : key
+    return [path, ...flattenKeys(nested, path, depth + 1)]
+  })
+}
+
+function pretty(value: unknown): string {
+  return JSON.stringify(value === undefined ? null : value, null, 2) ?? "null"
+}
 
 export default function FlowBuilderPage() {
   const { data, loading, error, reload } = useApi<FlowsPayload>("/api/studio/flows")
@@ -103,7 +160,7 @@ export default function FlowBuilderPage() {
   const [dropIndex, setDropIndex] = useState<number | null>(null)
   const [feedback, setFeedback] = useState<{ kind: "denied" | "success" | "error" | "info"; message: string } | null>(null)
   const [lastRun, setLastRun] = useState<FlowRun | null>(null)
-  const [sample, setSample] = useState('{"amountMinor": 250000, "currency": "EUR", "entity": "EU", "priority": "high"}')
+  const [sampleEdits, setSampleEdits] = useState<{ trigger: string; text: string } | null>(null)
   const [taskNotes, setTaskNotes] = useState<Record<string, string>>({})
 
   const flows = data?.flows ?? []
@@ -117,15 +174,20 @@ export default function FlowBuilderPage() {
   const draftKey = isNew ? "new" : selected ? `${selected.id}:${selected.status}:${selected.runCount}:${JSON.stringify(selected.steps)}` : null
   const draft = edits && edits.key === draftKey ? edits.draft : baseDraft
 
+  const sampleFor = data?.samples?.[draft?.trigger ?? ""] ?? {}
+  const sampleText = sampleEdits && sampleEdits.trigger === draft?.trigger ? sampleEdits.text : JSON.stringify(sampleFor, null, 2)
+  const fieldSuggestions = [...new Set(flattenKeys(sampleFor).concat(flattenKeys(sampleEdits ? safeParse(sampleEdits.text) : {}), ["topic", "status"]))].slice(0, 60)
+
   const select = (id: string) => {
     setChosenId(id)
     setEdits(
       id === "new"
-        ? { key: "new", draft: { name: "New flow", description: "", trigger: data?.triggers[0]?.id ?? "refund.created", steps: [blankStep("condition")], environment: "development" } }
+        ? { key: "new", draft: { name: "New flow", description: "", trigger: data?.triggers[0]?.id ?? "refund.created", steps: [blankStep("condition"), blankStep("action")], environment: "development" } }
         : null,
     )
     setStepId(null)
     setLastRun(null)
+    setSampleEdits(null)
   }
   const setDraft = (next: FlowDraft) => {
     if (draftKey) setEdits({ key: draftKey, draft: next })
@@ -189,12 +251,21 @@ export default function FlowBuilderPage() {
     }, isNew ? "Flow created as a draft." : "Flow saved; an active flow returns to draft until re-activated.")
 
   const test = () =>
-    selected &&
+    draft &&
     run(async () => {
-      const parsed = JSON.parse(sample) as Record<string, unknown>
-      const result = await apiSend<{ run: FlowRun }>(`/api/studio/flows/${selected.id}`, "POST", { action: "test", sample: parsed })
+      const parsed = JSON.parse(sampleText || "{}") as Context
+      let flowId = selected?.id
+      if (isNew) {
+        const created = await apiSend<{ flow: Flow }>("/api/studio/flows", "POST", draft)
+        flowId = created.flow.id
+        setChosenId(created.flow.id)
+        setEdits(null)
+      }
+      if (!flowId) return
+      // `steps` sends the canvas definition so a maker can test unsaved changes.
+      const result = await apiSend<{ run: FlowRun }>(`/api/studio/flows/${flowId}`, "POST", { action: "test", sample: parsed, steps: draft.steps })
       setLastRun(result.run)
-    }, "Test run executed against the saved definition.")
+    }, "Test run executed — each step recorded its input and output.")
 
   const selectedStep = draft?.steps.find((step) => step.id === stepId) ?? null
   const openTasks = (data?.tasks ?? []).filter((task) => task.status === "open")
@@ -204,7 +275,7 @@ export default function FlowBuilderPage() {
     <div>
       <PageHeader
         title="Flow builder"
-        description="Automations that react to domain events. Approval steps are real maker-checker tasks gated by role; kill-switch actions and production activation require an independent administrator."
+        description="Automations that react to domain events. Design a flow, feed the trigger a sample event, and watch the data move through lookups, transforms, conditions, approvals and actions — every run is recorded server-side with a per-step input/output trace."
         actions={
           <Button size="sm" disabled={!can("flow:build")} onClick={() => select("new")}>
             <Plus className="mr-1 size-3.5" /> New flow
@@ -224,7 +295,7 @@ export default function FlowBuilderPage() {
           <StatCard label="Your approvals" value={openTasks.filter((task) => user?.roles.includes(task.approverRole)).length} hint="Tasks your roles can decide" />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)_300px]">
+        <div className="grid gap-4 xl:grid-cols-[250px_minmax(0,1fr)_300px]">
           <div className="space-y-2">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Flows</div>
             {flows.map((flow) => (
@@ -246,7 +317,7 @@ export default function FlowBuilderPage() {
             ))}
 
             <div className="pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Steps</div>
-            {(["condition", "approval", "action"] as const).map((kind) => {
+            {(Object.keys(STEP_META) as (keyof typeof STEP_META)[]).map((kind) => {
               const meta = STEP_META[kind]
               return (
                 <div
@@ -259,10 +330,8 @@ export default function FlowBuilderPage() {
                 >
                   <meta.icon className="size-4" />
                   <div>
-                    <div className="font-medium">{meta.label}</div>
-                    <div className="text-[10px] text-muted-foreground">
-                      {kind === "condition" ? "Stop unless the event matches" : kind === "approval" ? "Human maker-checker gate" : "Notify, escalate, kill, publish"}
-                    </div>
+                    <div className="font-medium capitalize">{kind}</div>
+                    <div className="text-[10px] text-muted-foreground">{meta.hint}</div>
                   </div>
                 </div>
               )
@@ -286,21 +355,19 @@ export default function FlowBuilderPage() {
                       <option value="production">production</option>
                     </select>
                     <div className="ml-auto flex gap-2">
+                      <Button size="sm" variant="outline" disabled={!can("flow:build")} onClick={() => void test()} title="Run the canvas definition against the sample event (server-side)">
+                        <Play className="mr-1 size-3.5" /> Test
+                      </Button>
                       {selected && !isNew ? (
-                        <>
-                          <Button size="sm" variant="outline" disabled={!can("flow:build")} onClick={() => void test()}>
-                            <Play className="mr-1 size-3.5" /> Test
+                        selected.status === "active" ? (
+                          <Button size="sm" variant="outline" disabled={!can("flow:publish")} onClick={() => void run(() => apiSend(`/api/studio/flows/${selected.id}`, "POST", { action: "pause" }), "Flow paused.")}>
+                            Pause
                           </Button>
-                          {selected.status === "active" ? (
-                            <Button size="sm" variant="outline" disabled={!can("flow:publish")} onClick={() => void run(() => apiSend(`/api/studio/flows/${selected.id}`, "POST", { action: "pause" }), "Flow paused.")}>
-                              Pause
-                            </Button>
-                          ) : (
-                            <Button size="sm" variant="outline" disabled={!can("flow:publish") || dirty} title={dirty ? "Save first" : undefined} onClick={() => void run(() => apiSend(`/api/studio/flows/${selected.id}`, "POST", { action: "activate" }), "Flow activated and subscribed to its trigger.")}>
-                              <Zap className="mr-1 size-3.5" /> Activate
-                            </Button>
-                          )}
-                        </>
+                        ) : (
+                          <Button size="sm" variant="outline" disabled={!can("flow:publish") || dirty} title={dirty ? "Save first" : undefined} onClick={() => void run(() => apiSend(`/api/studio/flows/${selected.id}`, "POST", { action: "activate" }), "Flow activated and subscribed to its trigger.")}>
+                            <Zap className="mr-1 size-3.5" /> Activate
+                          </Button>
+                        )
                       ) : null}
                       <Button size="sm" disabled={!canEdit || !dirty} onClick={() => void save()}>
                         {isNew ? "Create flow" : dirty ? "Save" : "Saved"}
@@ -309,7 +376,7 @@ export default function FlowBuilderPage() {
                   </div>
                   <Input className="h-8 text-xs" placeholder="Description" value={draft.description} disabled={!canEdit} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
 
-                  <div className="mx-auto max-w-xl space-y-1" onClick={() => setStepId(null)}>
+                  <div className="mx-auto max-w-2xl space-y-1" onClick={() => setStepId(null)}>
                     <div className="rounded-lg border border-primary/40 bg-primary/5 p-3" onClick={(event) => event.stopPropagation()}>
                       <div className="flex items-center gap-2 text-xs font-medium">
                         <Zap className="size-4 text-primary" /> Trigger
@@ -318,7 +385,10 @@ export default function FlowBuilderPage() {
                         className="mt-2 h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
                         value={draft.trigger}
                         disabled={!canEdit}
-                        onChange={(event) => setDraft({ ...draft, trigger: event.target.value })}
+                        onChange={(event) => {
+                          setDraft({ ...draft, trigger: event.target.value })
+                          setSampleEdits(null)
+                        }}
                       >
                         {(data?.triggers ?? []).map((trigger) => (
                           <option key={trigger.id} value={trigger.id}>
@@ -326,12 +396,29 @@ export default function FlowBuilderPage() {
                           </option>
                         ))}
                       </select>
+                      <div className="mt-3 rounded-md border border-dashed border-primary/30 bg-background/60 p-2">
+                        <div className="mb-1 flex items-center justify-between text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          <span>Sample event input (JSON)</span>
+                          <button className="flex items-center gap-1 text-primary hover:underline" onClick={() => setSampleEdits(null)} title="Reset to the catalog sample for this trigger">
+                            <RotateCcw className="size-3" /> reset
+                          </button>
+                        </div>
+                        <textarea
+                          className="h-28 w-full rounded-md border border-input bg-background p-2 font-mono text-[11px] leading-relaxed"
+                          value={sampleText}
+                          onChange={(event) => draft && setSampleEdits({ trigger: draft.trigger, text: event.target.value })}
+                          spellCheck={false}
+                        />
+                        <div className="mt-1 text-[10px] text-muted-foreground">
+                          Testing sends this payload as the trigger event; <span className="font-mono">trigger</span> and <span className="font-mono">run</span> metadata are injected server-side.
+                        </div>
+                      </div>
                     </div>
 
                     <StepDropZone index={0} active={dropIndex === 0} onEnter={() => setDropIndex(0)} onDrop={onDrop} />
                     {draft.steps.map((step, index) => {
                       const meta = STEP_META[step.kind]
-                      const outcome = lastRun?.steps.find((entry) => entry.stepId === step.id)
+                      const trace = lastRun?.steps.find((entry) => entry.stepId === step.id)
                       return (
                         <div key={step.id}>
                           <div
@@ -347,14 +434,20 @@ export default function FlowBuilderPage() {
                             <meta.icon className="size-4" />
                             <div className="min-w-0 flex-1">
                               <div className="text-xs font-medium">
-                                {meta.label} <span className="text-muted-foreground">#{index + 1}</span>
+                                <span className="capitalize">{step.kind}</span> <span className="text-muted-foreground">#{index + 1}</span>
                               </div>
                               <div className="truncate text-[11px] text-muted-foreground">{describe(step)}</div>
                             </div>
-                            {outcome ? (
-                              <Badge variant="outline" className={`text-[10px] ${outcome.outcome === "stopped" ? "text-amber-600" : outcome.outcome === "executed" || outcome.outcome === "passed" ? "text-emerald-600" : ""}`} title={outcome.detail}>
-                                {outcome.outcome.replace("_", " ")}
-                              </Badge>
+                            {trace ? (
+                              <span className="flex items-center gap-1.5">
+                                <Badge variant="outline" className={`text-[10px] ${OUTCOME_TONE[trace.outcome] ?? ""}`} title={trace.detail}>
+                                  {trace.outcome.replace("_", " ")}
+                                </Badge>
+                                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                  <Clock className="size-3" />
+                                  {trace.durationMs}ms
+                                </span>
+                              </span>
                             ) : null}
                             {canEdit ? (
                               <button className="rounded p-1 text-destructive opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10" onClick={(event) => (event.stopPropagation(), removeStep(step.id))}>
@@ -368,44 +461,101 @@ export default function FlowBuilderPage() {
                     })}
                     {draft.steps.length === 0 ? <div className="rounded-lg border-2 border-dashed border-border p-6 text-center text-xs text-muted-foreground">Drag a step here</div> : null}
                   </div>
-
-                  {selected && !isNew ? (
-                    <div className="space-y-2 rounded-lg bg-muted/40 p-3">
-                      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Test with a sample event</div>
-                      <textarea className="h-16 w-full rounded-md border border-input bg-background p-2 font-mono text-[11px]" value={sample} onChange={(event) => setSample(event.target.value)} />
-                      {lastRun ? (
-                        <div className="text-[11px]">
-                          Run <span className="font-mono">{lastRun.id}</span> → <Badge variant="outline">{lastRun.status.replace("_", " ")}</Badge>
-                          <ul className="mt-1 space-y-0.5 text-muted-foreground">
-                            {lastRun.steps.map((entry) => (
-                              <li key={entry.stepId}>
-                                · {entry.kind}: {entry.detail}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
                 </CardContent>
               </Card>
             ) : null}
 
+            {lastRun ? (
+              <Section
+                title="Run trace"
+                description={`${lastRun.mode === "test" ? "Test run" : "Live run"} ${lastRun.id} · ${lastRun.status.replace("_", " ")} · real server execution, every step audited`}
+              >
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                    <div className="flex items-center gap-2 text-xs font-medium">
+                      <Zap className="size-4 text-primary" /> Trigger input — {lastRun.input.trigger ? String(lastRun.input.trigger) : lastRun.triggerEventId}
+                    </div>
+                    <div className="mt-2 max-h-44 overflow-auto rounded-md border border-border bg-background p-2">
+                      <JsonView data={lastRun.input} />
+                    </div>
+                  </div>
+
+                  {lastRun.steps.map((entry, index) => (
+                    <div key={`${entry.stepId}:${index}`} className="overflow-hidden rounded-lg border border-border">
+                      <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
+                        <ChevronRight className="size-3.5 text-muted-foreground" />
+                        <span className="text-xs font-medium">
+                          <span className="capitalize">{entry.kind}</span> — {entry.label}
+                        </span>
+                        <Badge variant="outline" className={`ml-auto text-[10px] ${OUTCOME_TONE[entry.outcome] ?? ""}`}>
+                          {entry.outcome.replace("_", " ")}
+                        </Badge>
+                        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                          <Clock className="size-3" />
+                          {entry.durationMs}ms
+                        </span>
+                      </div>
+                      <div className="px-3 py-2 text-[11px] text-muted-foreground">{entry.detail}</div>
+                      <div className="grid gap-0 border-t border-border md:grid-cols-2">
+                        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Input context</div>
+                          <div className="max-h-44 overflow-auto rounded-md bg-muted/30 p-2">
+                            <JsonView data={entry.input} />
+                          </div>
+                        </div>
+                        <div className="p-3">
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Output context{entry.changed.length > 0 ? ` — ${entry.changed.length} field${entry.changed.length === 1 ? "" : "s"} written` : " — unchanged"}
+                          </div>
+                          {entry.changed.length > 0 ? (
+                            <div className="mb-2 space-y-1">
+                              {entry.changed.map((key) => (
+                                <div key={key} className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px]">
+                                  <span className="font-semibold text-emerald-700 dark:text-emerald-400">+ {key}</span>
+                                  <span className="ml-2 break-all text-foreground/80">{shortValue(entry.output[key])}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="max-h-44 overflow-auto rounded-md bg-muted/30 p-2">
+                            <JsonView data={entry.output} highlight={entry.changed} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
+                    <div className="flex items-center gap-2 text-xs font-medium">
+                      Final output context
+                      <Badge variant="outline" className={`ml-auto text-[10px] ${lastRun.status === "completed" ? OUTCOME_TONE.executed : OUTCOME_TONE.stopped}`}>
+                        {lastRun.status.replace("_", " ")}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 max-h-44 overflow-auto rounded-md border border-border bg-background p-2">
+                      <JsonView data={lastRun.output} />
+                    </div>
+                  </div>
+                </div>
+              </Section>
+            ) : null}
+
             {selected ? (
-              <Section title="Run history" description="Each run records per-step outcomes; approval steps open tasks below.">
+              <Section title="Run history" description="Click a run to inspect its recorded per-step trace.">
                 {runsForFlow.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No runs yet.</div>
+                  <div className="text-xs text-muted-foreground">No runs yet — press Test to execute this flow against the sample event.</div>
                 ) : (
                   <div className="divide-y divide-border rounded-lg border border-border text-xs">
                     {runsForFlow.map((entry) => (
-                      <div key={entry.id} className="flex items-center gap-3 px-3 py-2">
+                      <button key={entry.id} onClick={() => setLastRun(entry)} className={`flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-muted/40 ${lastRun?.id === entry.id ? "bg-primary/5" : ""}`}>
                         <span className="font-mono text-[11px]">{entry.id}</span>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className={`text-[10px] ${OUTCOME_TONE[entry.status] ?? ""}`}>
                           {entry.status.replace("_", " ")}
                         </Badge>
+                        <Badge variant="outline" className="text-[10px]">{entry.mode}</Badge>
                         <span className="text-muted-foreground">by {entry.triggeredBy}</span>
                         <span className="ml-auto text-muted-foreground">{relative(entry.startedAt)}</span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -417,15 +567,11 @@ export default function FlowBuilderPage() {
             {selectedStep && draft ? (
               <Card>
                 <CardContent className="space-y-3 p-4">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{STEP_META[selectedStep.kind].label} step</div>
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground capitalize">{selectedStep.kind} step</div>
                   {selectedStep.kind === "condition" ? (
                     <>
-                      <Field label="Field">
-                        <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={selectedStep.field} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { field: event.target.value })}>
-                          {[...new Set([selectedStep.field, ...SAMPLE_FIELDS])].map((field) => (
-                            <option key={field}>{field}</option>
-                          ))}
-                        </select>
+                      <Field label="Field" hint="Dotted paths work too, e.g. refund.entity or payload.topic.">
+                        <Input className="h-8 font-mono text-xs" list="flow-context-fields" value={selectedStep.field} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { field: event.target.value })} />
                       </Field>
                       <Field label="Operator">
                         <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={selectedStep.operator} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { operator: event.target.value as "gt" | "lt" | "eq" | "contains" })}>
@@ -439,6 +585,69 @@ export default function FlowBuilderPage() {
                         <Input className="h-8 text-xs" value={selectedStep.value} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { value: event.target.value })} />
                       </Field>
                     </>
+                  ) : selectedStep.kind === "lookup" ? (
+                    <>
+                      <Field label="Resource" hint="Fetched through the governed store — PII is masked for the triggering user.">
+                        <select className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs" value={selectedStep.resource} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { resource: event.target.value })}>
+                          {LOOKUP_RESOURCES.map((resource) => (
+                            <option key={resource.id} value={resource.id}>
+                              {resource.label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Match field" hint="Context field holding the key, e.g. refundId or caseId.">
+                        <Input className="h-8 font-mono text-xs" list="flow-context-fields" value={selectedStep.keyField} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { keyField: event.target.value })} />
+                      </Field>
+                      <Field label="Store as" hint="The record lands in the context under this name.">
+                        <Input className="h-8 font-mono text-xs" value={selectedStep.as} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { as: event.target.value })} />
+                      </Field>
+                    </>
+                  ) : selectedStep.kind === "transform" ? (
+                    <Field label="Assignments" hint={"Write fields with {{path}} interpolation or arithmetic like {{amountMinor}} / 100."}>
+                      <div className="space-y-1.5">
+                        {selectedStep.assignments.map((assignment, index) => (
+                          <div key={index} className="flex items-center gap-1">
+                            <Input
+                              className="h-7 w-28 font-mono text-[11px]"
+                              placeholder="field"
+                              value={assignment.field}
+                              disabled={!canEdit}
+                              onChange={(event) =>
+                                patchStep(selectedStep.id, {
+                                  assignments: selectedStep.assignments.map((a, i) => (i === index ? { ...a, field: event.target.value } : a)),
+                                })
+                              }
+                            />
+                            <span className="text-muted-foreground">=</span>
+                            <Input
+                              className="h-7 flex-1 font-mono text-[11px]"
+                              placeholder="expression"
+                              value={assignment.expression}
+                              disabled={!canEdit}
+                              onChange={(event) =>
+                                patchStep(selectedStep.id, {
+                                  assignments: selectedStep.assignments.map((a, i) => (i === index ? { ...a, expression: event.target.value } : a)),
+                                })
+                              }
+                            />
+                            {canEdit ? (
+                              <button
+                                className="rounded p-1 text-destructive hover:bg-destructive/10"
+                                onClick={() => patchStep(selectedStep.id, { assignments: selectedStep.assignments.filter((_, i) => i !== index) })}
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ))}
+                        {canEdit ? (
+                          <Button size="sm" variant="outline" className="h-7 w-full text-[11px]" onClick={() => patchStep(selectedStep.id, { assignments: [...selectedStep.assignments, { field: "newField", expression: "{{status}}" }] })}>
+                            <Plus className="mr-1 size-3" /> Add assignment
+                          </Button>
+                        ) : null}
+                      </div>
+                    </Field>
                   ) : selectedStep.kind === "approval" ? (
                     <>
                       <Field label="Approver role" hint="The triggering user can never approve their own run.">
@@ -477,7 +686,7 @@ export default function FlowBuilderPage() {
                           <Input className="h-8 text-xs" value={selectedStep.target} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { target: event.target.value })} />
                         )}
                       </Field>
-                      <Field label="Message">
+                      <Field label="Message" hint="Use {{path}} to interpolate context values.">
                         <Input className="h-8 text-xs" value={selectedStep.message} disabled={!canEdit} onChange={(event) => patchStep(selectedStep.id, { message: event.target.value })} />
                       </Field>
                     </>
@@ -491,11 +700,17 @@ export default function FlowBuilderPage() {
               </Card>
             ) : (
               <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
-                Select a step to edit it. Drag steps from the palette into the flow; drag the grip to reorder.
+                Select a step to edit it. Drag steps from the palette into the flow; drag the grip to reorder. Press Test to run the canvas against the sample event and inspect what each step reads and writes.
               </div>
             )}
 
-            <Section title="Approval inbox" description="Open maker-checker tasks from flow runs.">
+            <datalist id="flow-context-fields">
+              {fieldSuggestions.map((field) => (
+                <option key={field} value={field} />
+              ))}
+            </datalist>
+
+            <Section title="Approval inbox" description="Open maker-checker tasks from flow runs; approval resumes the run, rejection stops it.">
               {openTasks.length === 0 ? <div className="text-xs text-muted-foreground">Nothing awaiting approval.</div> : null}
               <div className="space-y-2">
                 {openTasks.map((task) => {
@@ -504,15 +719,16 @@ export default function FlowBuilderPage() {
                     <Card key={task.id}>
                       <CardContent className="space-y-2 p-3">
                         <div className="text-xs font-medium">{task.title}</div>
+                        {task.summary ? <div className="text-[11px] text-muted-foreground">{task.summary}</div> : null}
                         <div className="text-[11px] text-muted-foreground">
                           needs <span className="font-mono">{task.approverRole}</span> · due {relative(task.dueAt)}
                         </div>
                         <Input className="h-7 text-xs" placeholder="Decision notes (required)" value={taskNotes[task.id] ?? ""} onChange={(event) => setTaskNotes({ ...taskNotes, [task.id]: event.target.value })} />
                         <div className="flex gap-1">
-                          <Button size="sm" className="h-7 flex-1 text-xs" disabled={!eligible} onClick={() => void run(() => apiSend(`/api/studio/tasks/${task.id}`, "POST", { decision: "approved", notes: taskNotes[task.id] ?? "" }), "Task approved.")}>
+                          <Button size="sm" className="h-7 flex-1 text-xs" disabled={!eligible} onClick={() => void run(() => apiSend(`/api/studio/tasks/${task.id}`, "POST", { decision: "approved", notes: taskNotes[task.id] ?? "" }), "Task approved — the run resumed.")}>
                             Approve
                           </Button>
-                          <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" disabled={!eligible} onClick={() => void run(() => apiSend(`/api/studio/tasks/${task.id}`, "POST", { decision: "rejected", notes: taskNotes[task.id] ?? "" }), "Task rejected.")}>
+                          <Button size="sm" variant="outline" className="h-7 flex-1 text-xs" disabled={!eligible} onClick={() => void run(() => apiSend(`/api/studio/tasks/${task.id}`, "POST", { decision: "rejected", notes: taskNotes[task.id] ?? "" }), "Task rejected — the run stopped.")}>
                             Reject
                           </Button>
                         </div>
@@ -526,6 +742,42 @@ export default function FlowBuilderPage() {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+function safeParse(text: string): Context {
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Context) : {}
+  } catch {
+    return {}
+  }
+}
+
+function shortValue(value: unknown): string {
+  const text = typeof value === "string" ? JSON.stringify(value) : JSON.stringify(value)
+  return text && text.length > 80 ? `${text.slice(0, 80)}…` : (text ?? "null")
+}
+
+function JsonView({ data, highlight = [] }: { data: unknown; highlight?: string[] }) {
+  if (data === null || typeof data !== "object" || Array.isArray(data))
+    return <pre className="font-mono text-[10px] leading-relaxed">{pretty(data)}</pre>
+  const entries = Object.entries(data as Context)
+  return (
+    <div className="space-y-0.5 font-mono text-[10px] leading-relaxed">
+      {entries.map(([key, value]) => {
+        const changed = highlight.includes(key)
+        const complex = value !== null && typeof value === "object"
+        return (
+          <div key={key} className={changed ? "-mx-1 rounded bg-emerald-500/15 px-1" : ""}>
+            <span className={changed ? "font-semibold text-emerald-700 dark:text-emerald-400" : "text-primary/80"}>{key}</span>
+            <span className="text-muted-foreground">: </span>
+            <span className="break-all text-foreground/80">{complex ? pretty(value) : JSON.stringify(value)}</span>
+          </div>
+        )
+      })}
+      {entries.length === 0 ? <span className="text-muted-foreground">{"{ }"}</span> : null}
     </div>
   )
 }

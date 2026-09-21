@@ -32,7 +32,8 @@ export const POST = handler(async ({ authorize, audit }, request) => {
     resourceId: event.id,
     outcome: accepted ? 'allow' : 'deny',
     reason: event.error,
-    metadata: { simulated: true, signatureValid: event.signatureValid },
+    after: accepted ? event.payload : undefined,
+    metadata: { simulated: true, topic: connector.topic, connectorId: connector.id, signatureValid: event.signatureValid },
   })
   return Response.json({ event }, { status: accepted ? 202 : 401 })
 })

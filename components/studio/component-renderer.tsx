@@ -83,13 +83,16 @@ export function ComponentRenderer({
 
   const rows = useMemo(() => data?.rows ?? [], [data])
   const resourceKey = data?.resource ?? (typeof instance.props.resource === "string" ? instance.props.resource : app.resource)
+  const entityFields = data?.entity?.fields
   const columns = useMemo(() => {
     const chosen = Array.isArray(instance.props.columns) ? (instance.props.columns as string[]) : []
-    if (chosen.length) return chosen.filter((column) => rows.some((row) => column in row))
+    // Column picks from a previous binding are stale once the row shape changes; fall back to the schema.
+    if (chosen.length && chosen.every((column) => rows.some((row) => column in row))) return chosen
+    if (entityFields) return entityFields.map((field) => field.name).slice(0, compact ? 4 : 7)
     const preferred = PREFERRED_COLUMNS[resourceKey]?.filter((column) => rows.some((row) => column in row))
     if (preferred?.length) return preferred
     return Object.keys(rows[0] ?? {}).slice(0, compact ? 4 : 7)
-  }, [instance.props.columns, resourceKey, rows, compact])
+  }, [instance.props.columns, resourceKey, rows, compact, entityFields])
 
   if (!allowed && definition)
     return (
@@ -213,7 +216,7 @@ export function ComponentRenderer({
               </TableHeader>
               <TableBody>
                 {rows.slice(0, limit).map((row, index) => (
-                  <TableRow key={String(row.id ?? row[columns[0]] ?? index)}>
+                  <TableRow key={`${index}:${String(row.id ?? row[data?.entity?.fields[0]?.name ?? "id"] ?? "")}`}>
                     {columns.map((column) => (
                       <TableCell key={column} className="text-xs">
                         {formatCell(column, row[column], row)}
@@ -248,7 +251,7 @@ function AuditTrail({ appId, compact }: { appId: string; compact: boolean }) {
   return (
     <ul className="divide-y divide-border rounded-lg border border-border text-xs">
       {rows.slice(0, compact ? 4 : 8).map((row, index) => (
-        <li key={String(row.id ?? index)} className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <li key={`${index}:${String(row.id ?? "")}`} className="flex items-center justify-between gap-2 px-3 py-1.5">
           <span className="truncate font-mono text-[11px]">{String(row.eventType ?? "")}</span>
           <span className="truncate text-muted-foreground">{String(row.actorEmail ?? row.actorId ?? "")}</span>
           <span className={`text-[11px] ${row.outcome === "deny" ? "text-amber-600" : "text-muted-foreground"}`}>{String(row.outcome ?? "")}</span>

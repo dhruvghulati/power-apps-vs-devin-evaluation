@@ -45,6 +45,8 @@ export const PATCH = handler(async ({ user, authorize, audit }, request, params)
 interface ActionBody {
   action: 'activate' | 'pause' | 'test'
   sample?: Record<string, unknown>
+  /** Unsaved step definition from the designer; lets a maker test before saving. */
+  steps?: FlowStep[]
 }
 
 export const POST = handler(async ({ user, authorize, audit }, request, params) => {
@@ -53,12 +55,11 @@ export const POST = handler(async ({ user, authorize, audit }, request, params) 
 
   if (body.action === 'test') {
     authorize('flow:build', { resource: 'flow', resourceId: flow.id, eventType: 'flow.test.denied' })
-    const run = runFlow(
-      flow,
-      { ...(body.sample ?? {}), payload: body.sample ?? {} },
-      user.id,
-      'manual-test',
-    )
+    if (body.steps && (!Array.isArray(body.steps) || body.steps.length === 0)) throw new HttpError(400, 'A flow needs at least one step.')
+    const run = runFlow(flow, { ...(body.sample ?? {}), payload: body.sample ?? {} }, user.id, 'manual-test', {
+      mode: 'test',
+      stepsOverride: body.steps,
+    })
     return Response.json({ run })
   }
 
@@ -70,10 +71,14 @@ export const POST = handler(async ({ user, authorize, audit }, request, params) 
     return Response.json({ flow })
   }
 
+  const deny = (reason: string, control: string): never => {
+    audit({ eventType: 'flow.activate.denied', resource: 'flow', resourceId: flow.id, outcome: 'deny', reason, metadata: { control } })
+    throw new HttpError(403, reason, { control })
+  }
   if (flow.environment === 'production' && flow.owner === user.id && !user.roles.includes('admin'))
-    throw new HttpError(403, 'Activating a production flow requires an independent approver.')
+    deny('Activating a production flow requires an independent approver.', 'sod.independent_publisher')
   if (flow.steps.some((step) => step.kind === 'action' && step.action === 'kill_flag') && !user.roles.includes('admin'))
-    throw new HttpError(403, 'Flows containing a kill-switch action must be activated by a platform administrator.')
+    deny('Flows containing a kill-switch action must be activated by a platform administrator.', 'kill_switch.admin_only')
 
   flow.status = 'active'
   audit({

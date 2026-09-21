@@ -88,7 +88,13 @@ export default function LiveStreamsPage() {
     try {
       const parsed = JSON.parse(payload) as Record<string, unknown>
       const result = await apiSend<{ event: StreamEvent }>("/api/streams/simulate", "POST", { connectorId, payload: parsed, signed })
-      setFeedback({ kind: "success", message: `Event ${result.event.id} ${result.event.status}; PII fields were redacted at ingress.` })
+      const connector = connectors.find((item) => item.id === connectorId)
+      const redacted = connector?.piiFields.filter((field) => field in parsed) ?? []
+      const note =
+        redacted.length > 0
+          ? `redacted ${redacted.join(", ")} at ingress.`
+          : `no PII fields are configured for redaction on this connector, payload stored as received.`
+      setFeedback({ kind: "success", message: `Event ${result.event.id} ${result.event.status}; ${note}` })
       await reload()
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Request failed"
@@ -205,7 +211,7 @@ export default function LiveStreamsPage() {
                 </Button>
               </div>
               <div className="text-[10px] text-muted-foreground">
-                A signed event is accepted, redacted and published to flows subscribed to <span className="font-mono">stream.event_accepted</span>. A bad signature is rejected with HTTP 401 and audited.
+                A signed event is accepted, redacted according to the connector&apos;s PII policy (shown above) and published to flows subscribed to <span className="font-mono">stream.event_accepted</span>. A bad signature is rejected with HTTP 401 and audited.
                 {!can("stream:manage") ? " Your roles cannot simulate (server-enforced)." : ""}
               </div>
             </CardContent>

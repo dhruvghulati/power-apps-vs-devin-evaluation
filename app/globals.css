@@ -7,9 +7,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Code", Consolas, ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,40 +51,42 @@
 }
 
 :root {
-  /* Sophisticated fintech color palette inspired by Stripe/Brex/Plaid */
-  --background: oklch(0.98 0.002 247);
-  --foreground: oklch(0.15 0.015 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.015 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.015 250);
-  --primary: oklch(0.45 0.18 250);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.005 250);
-  --secondary-foreground: oklch(0.15 0.015 250);
-  --muted: oklch(0.94 0.008 250);
-  --muted-foreground: oklch(0.5 0.02 250);
-  --accent: oklch(0.92 0.012 250);
-  --accent-foreground: oklch(0.15 0.015 250);
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.88 0.01 250);
-  --input: oklch(0.9 0.01 250);
-  --ring: oklch(0.45 0.18 250);
-  --chart-1: oklch(0.65 0.15 250);
-  --chart-2: oklch(0.6 0.18 180);
-  --chart-3: oklch(0.55 0.2 140);
-  --chart-4: oklch(0.5 0.22 45);
-  --chart-5: oklch(0.45 0.18 280);
-  --radius: 0.5rem;
-  --sidebar: oklch(0.97 0.005 250);
-  --sidebar-foreground: oklch(0.15 0.015 250);
-  --sidebar-primary: oklch(0.45 0.18 250);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.92 0.012 250);
-  --sidebar-accent-foreground: oklch(0.15 0.015 250);
-  --sidebar-border: oklch(0.88 0.01 250);
-  --sidebar-ring: oklch(0.45 0.18 250);
+  /* Fluent / Power Apps palette: neutral greys, brand purple header, Fluent blue primary */
+  --background: #f5f5f5;
+  --foreground: #242424;
+  --card: #ffffff;
+  --card-foreground: #242424;
+  --popover: #ffffff;
+  --popover-foreground: #242424;
+  --primary: #742774;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #242424;
+  --muted: #f0f0f0;
+  --muted-foreground: #616161;
+  --accent: #ebebeb;
+  --accent-foreground: #242424;
+  --destructive: #c50f1f;
+  --destructive-foreground: #ffffff;
+  --border: #e0e0e0;
+  --input: #d1d1d1;
+  --ring: #742774;
+  --brand: #742774;
+  --brand-foreground: #ffffff;
+  --chart-1: #742774;
+  --chart-2: #0f6cbd;
+  --chart-3: #0e700e;
+  --chart-4: #c19c00;
+  --chart-5: #d13438;
+  --radius: 0.25rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #242424;
+  --sidebar-primary: #742774;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f0f0;
+  --sidebar-accent-foreground: #242424;
+  --sidebar-border: #e0e0e0;
+  --sidebar-ring: #742774;
 }
 
 .dark {
@@ -118,6 +122,8 @@
   --sidebar-accent-foreground: oklch(0.95 0.005 250);
   --sidebar-border: oklch(0.25 0.025 250);
   --sidebar-ring: oklch(0.6 0.2 250);
+  --brand: #742774;
+  --brand-foreground: #ffffff;
 }
 
 @layer base {
@@ -126,9 +132,13 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+    font-size: 14px;
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3 {
+    @apply font-heading;
   }
 }
 

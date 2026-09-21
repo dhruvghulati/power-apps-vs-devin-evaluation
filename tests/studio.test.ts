@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { dataSystems, findEntity, sampleRows } from '@/lib/server/datasources'
-import { runFlow } from '@/lib/server/flows'
+import { evaluateExpression, resumeRun, runFlow, sampleEvents } from '@/lib/server/flows'
 import { checkApp, instantiateTemplate, templateCatalog, visibleApps } from '@/lib/server/studio'
 import type { MakerApp } from '@/lib/server/studio-types'
 import type { Flow } from '@/lib/server/studio-types'
@@ -151,5 +151,65 @@ describe('flow runtime', () => {
     )
     expect(run.status).toBe('completed')
     expect(run.steps[1].outcome).toBe('executed')
+  })
+
+  it('records the context each step received and produced', () => {
+    const sample = sampleEvents()['refund.created']
+    const run = runFlow(
+      flow([
+        { id: 's1', kind: 'lookup', resource: 'refund', keyField: 'refundId', as: 'refund' },
+        { id: 's2', kind: 'transform', assignments: [{ field: 'amountMajor', expression: '{{amountMinor}} / 100' }] },
+        { id: 's3', kind: 'action', action: 'notify', target: '#ops', message: 'Refund {{refund.id}} is {{currency}} {{amountMajor}}' },
+      ]),
+      sample,
+      'test',
+      'evt_4',
+      { mode: 'test' },
+    )
+    expect(run.mode).toBe('test')
+    expect(run.steps[0].changed).toEqual(['refund'])
+    const refund = run.steps[0].output.refund as Record<string, unknown>
+    expect(refund.id).toBe(sample.refundId)
+    expect(String(refund.customerEmail)).toContain('*')
+    expect(run.steps[1].output.amountMajor).toBe(Number(sample.amountMinor) / 100)
+    expect(run.steps[2].detail).toContain(`Refund ${String(sample.refundId)} is`)
+    expect(run.output.notification).toBeDefined()
+    expect(run.finishedAt).toBeDefined()
+  })
+
+  it('resumes after the approval gate and runs the remaining steps', () => {
+    const run = runFlow(
+      flow([
+        { id: 's1', kind: 'approval', approverRole: 'kyc_approver', slaHours: 4 },
+        { id: 's2', kind: 'action', action: 'notify', target: '#x', message: 'after approval' },
+      ]),
+      { amountMinor: 1 },
+      'usr_bob',
+      'evt_5',
+    )
+    const task = db().flowTasks.find((candidate) => candidate.flowRunId === run.id)
+    if (!task) throw new Error('task missing')
+    expect(task.stepId).toBe('s1')
+    resumeRun(run, task, 'approved', 'hana', 'ok')
+    expect(run.status).toBe('completed')
+    expect(run.steps.map((step) => step.outcome)).toEqual(['executed', 'executed'])
+    expect(run.steps[1].input.approval).toMatchObject({ decision: 'approved' })
+  })
+
+  it('evaluates arithmetic safely and never executes code', () => {
+    expect(evaluateExpression('({{a}} + 2) * 3', { a: 4 })).toBe(18)
+    expect(evaluateExpression('{{a}}.toString()', { a: 4 })).toBe('4.toString()')
+    expect(evaluateExpression('process.exit(1)', {})).toBe('process.exit(1)')
+  })
+
+  it('tests an unsaved definition without mutating the stored flow', () => {
+    const stored = db().flows[0]
+    const stepsBefore = JSON.stringify(stored.steps)
+    const run = runFlow(stored, sampleEvents()[stored.trigger], 'test', 'evt_6', {
+      mode: 'test',
+      stepsOverride: [{ id: 'x', kind: 'action', action: 'notify', target: '#x', message: 'only this' }],
+    })
+    expect(run.steps.length).toBe(1)
+    expect(JSON.stringify(stored.steps)).toBe(stepsBefore)
   })
 })
