@@ -22,7 +22,7 @@ interface CompliancePayload {
   score: number
   byFramework: Record<string, { score: number; controls: number }>
   chain: { valid: boolean; totalEvents: number; latestHash: string; verifiedAt: string; brokenAtSeq?: number }
-  sodMatrix: { roles: string[]; reason: string }[]
+  sodMatrix: { a: string; b: string; reason: string }[]
   accessReviews: { id: string; userId: string; reviewer: string; decision: string; at: string; notes: string }[]
   retention: { framework: string; requirement: string; applies: string }[]
 }
@@ -114,8 +114,8 @@ export default function CompliancePage() {
             <Card>
               <CardContent className="space-y-2 p-4 text-xs">
                 {(data?.sodMatrix ?? []).map((conflict) => (
-                  <div key={conflict.roles.join("-")} className="rounded-md border border-border p-2">
-                    <div className="font-medium">{conflict.roles.join("  ✕  ")}</div>
+                  <div key={`${conflict.a}-${conflict.b}`} className="rounded-md border border-border p-2">
+                    <div className="font-medium">{[conflict.a, conflict.b].join("  ✕  ")}</div>
                     <div className="text-muted-foreground">{conflict.reason}</div>
                   </div>
                 ))}
