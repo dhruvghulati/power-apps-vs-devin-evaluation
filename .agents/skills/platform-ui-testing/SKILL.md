@@ -36,6 +36,7 @@ description: End-to-end UI testing playbook for the governed Northwind maker pla
 - Test every permission-gated nav item twice: once as an eligible persona to prove it navigates and renders, and once as an ineligible persona to prove the affordance is hidden rather than merely disabled.
 - A nav item that reaches a Next.js runtime error overlay is a page-render defect, not a dead link; capture both the destination URL and the exact overlay message.
 - If an ineligible persona still sees a governed nav item, click it to determine whether the server/page enforces access or the affordance is incorrectly exposed.
+- Frank (`viewer`) legitimately has `compliance:read`, so he should see the Compliance nav item and `/compliance` should render for him; do not treat that visibility as a permission leak.
 
 ## Audit regression
 - Bob’s owner production-publish attempt should both show the independent-approver 403 and create `app.publish.denied` for `app_5001`.
