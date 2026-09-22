@@ -14,7 +14,7 @@
 - `[do]` Back as **Bob**. On a pending refund over $1,000, type decision notes in the inline Decision controls — the Approve/Reject buttons stay disabled until notes are entered — then Approve.
 - `[do]` Point at `POST /api/refunds/…/decision` in DevTools — show the request payload and the 200 response: `awaitingRoles` still lists the compliance slot.
 - `[talk]` "Manager approval is one slot. Two managers can't fill it — the tier needs compliance next. And approvals are role slots, not headcounts — that's a control most no-code tools can't express."
-- `[do]` (Optional) Show a second manager clicking Approve → 403 `deny` response, and it lands in the audit trail.
+- `[do]` (Optional — needs setup) Show a second manager clicking Approve → 403 `deny` response, and it lands in the audit trail. Only Bob is seeded as `manager`, so first do this unscripted step: as **Alice** → Admin → Identities & entitlements, grant **Carol** the `manager` role, then run the beat as Carol.
 
 ## 0:45–1:15 — The flow builder actually runs
 - `[do]` Build → **Flows** → "High-value refund escalation". Point at the trigger card: editable `refund.created` sample JSON.
@@ -22,13 +22,14 @@
 - `[do]` Scroll the Run trace: trigger input JSON → **Lookup** (refund record pulled in, PII masked) → **Transform** (`amountMajor` written — highlighted green) → **Condition** passed → **Approval** → status `awaiting_approval`, task appears in the inbox.
 - `[talk]` "This ran server-side just now — each card is the recorded input and output context of that step. I can edit a step, press Test without saving, and the unsaved canvas is what executes."
 - `[do]` Switch to **Hana (kyc_approver)** → Approval inbox → type decision notes (buttons enable only then) → Approve → the same run resumes: notify step executes, history shows `completed`.
-- `[talk]` "Maker-checker is real too — Bob can't approve his own run."
+- `[talk]` "Maker-checker is real too — the approval slot demands the kyc_approver role, and the server separately blocks a triggerer approving their own run."
+- `[do]` (Optional) To show the self-approval denial live: on the unsaved canvas, change the approval step's `approverRole` to `manager`, Test as Bob, then attempt approval as Bob → server denies the triggerer.
 - `[do]` Switch back to **Bob** — Hana's role can't see Connections, which we visit next.
 
 ## 1:15–1:35 — Components and connections are live
 - `[do]` Build → **Apps** (studio home) → scroll to Component library.
 - `[talk]` "These aren't icons — every tile is a live instance: the work queue is querying refund rows, the chart is aggregating warehouse metrics per entity, and this form is bound to the CRM. Frank sees masked data here; an auditor sees it unmasked."
-- `[do]` On the Secure Document Uploader tile, drop a small PDF/image → it POSTs to `/api/kyc/{case}/documents` and shows the SHA-256 checksum and residency tag in the result line. (Personas without `kyc:document_upload` see it disabled.)
+- `[do]` Switch to **Grace (KYC reviewer)** — she holds `kyc:document_upload` — then drop a small PDF/image onto the Secure Document Uploader tile → it POSTs to `/api/kyc/{case}/documents` and shows the SHA-256 checksum and residency tag in the result line. (Bob's disabled variant is the governed-denial example.) Switch back to **Bob** before Connections.
 - `[do]` Build → **Connections**: brand-marked systems (Snowflake, Salesforce, core ledger, PSP), entity classifications, DLP view per environment.
 - `[do]` Click an entity → schema + governed sample rows; point at `GET /api/datasources/…` in the network tab.
 
