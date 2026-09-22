@@ -1,452 +1,288 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react"
+import { KeyRound, Lock, Plug, ShieldCheck } from "lucide-react"
+import { PageHeader } from "@/components/app-shell"
+import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
+import { useSession } from "@/components/session-provider"
+import { formatCell } from "@/components/studio/component-renderer"
+import type { DataSystem, EntityDefinition } from "@/components/studio/types"
+import { VendorMark } from "@/components/vendor-mark"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { getCurrentUser, hasPermission } from "@/lib/rbac"
+import { apiSend, relative, useApi } from "@/lib/client/api"
 
-interface DataSource {
+interface Connector {
   id: string
   name: string
-  type: "azure-sql" | "postgresql" | "snowflake" | "bigquery" | "redshift" | "mysql"
-  status: "connected" | "disconnected" | "error"
-  lastSync?: string
-  tables: number
-  rows: number
-  description: string
-  icon: string
+  kind: string
+  direction: string
+  topic: string
+  status: string
+  secretRef: string
+  signatureAlgorithm: string
+  lastEventAt?: string
+  eventsToday: number
+  dlqDepth: number
+  schemaVersion: string
+  piiFields: string[]
 }
 
-const mockDataSources: DataSource[] = [
-  {
-    id: "ds-001",
-    name: "Azure SQL Data Warehouse",
-    type: "azure-sql",
-    status: "connected",
-    lastSync: "2026-01-20 14:30:00",
-    tables: 12,
-    rows: 2450000,
-    description: "Production Azure SQL warehouse for refunds and transactions",
-    icon: "🔷"
-  },
-  {
-    id: "ds-002",
-    name: "PostgreSQL - KYC Documents",
-    type: "postgresql",
-    status: "connected",
-    lastSync: "2026-01-20 14:30:00",
-    tables: 8,
-    rows: 156000,
-    description: "KYC document metadata and customer records",
-    icon: "🐘"
-  },
-  {
-    id: "ds-003",
-    name: "Snowflake - Analytics",
-    type: "snowflake",
-    status: "disconnected",
-    tables: 24,
-    rows: 12500000,
-    description: "Snowflake data warehouse for analytics and reporting",
-    icon: "❄️"
-  },
-  {
-    id: "ds-004",
-    name: "BigQuery - Risk Analytics",
-    type: "bigquery",
-    status: "connected",
-    lastSync: "2026-01-20 14:30:00",
-    tables: 15,
-    rows: 8900000,
-    description: "Google BigQuery for risk scoring and fraud detection",
-    icon: "📊"
-  },
-  {
-    id: "ds-005",
-    name: "Redshift - Transaction History",
-    type: "redshift",
-    status: "error",
-    tables: 18,
-    rows: 3200000,
-    description: "AWS Redshift for long-term transaction history",
-    icon: "🔴"
-  },
-  {
-    id: "ds-006",
-    name: "MySQL - Legacy Systems",
-    type: "mysql",
-    status: "connected",
-    lastSync: "2026-01-20 14:30:00",
-    tables: 6,
-    rows: 89000,
-    description: "MySQL database for legacy application data",
-    icon: "🐬"
-  }
-]
+interface StreamsPayload {
+  connectors: Connector[]
+  health: { connected: number; degraded: number; dlqDepth: number; eventsToday: number }
+}
 
-export default function DataConnections() {
-  const [dataSources, setDataSources] = useState<DataSource[]>(mockDataSources)
-  const [selectedSource, setSelectedSource] = useState<DataSource | null>(null)
-  const [currentUser, setCurrentUserState] = useState(getCurrentUser())
+interface SamplePayload {
+  system: { name: string; latencyMs: number }
+  entity: EntityDefinition
+  rows: Record<string, unknown>[]
+  piiMasked: boolean
+}
 
-  const getTypeBadge = (type: string) => {
-    const colors: Record<string, string> = {
-      'azure-sql': 'badge-info border-0',
-      'postgresql': 'badge-success border-0',
-      'snowflake': 'badge-info border-0',
-      'bigquery': 'badge-warning border-0',
-      'redshift': 'badge-error border-0',
-      'mysql': 'badge-warning border-0'
-    }
-    return colors[type] || 'badge-info border-0'
-  }
+const STATUS = {
+  connected: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  degraded: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  disconnected: "bg-red-500/15 text-red-700 dark:text-red-400",
+} as const
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'connected':
-        return <Badge className="badge-success border-0">Connected</Badge>
-      case 'disconnected':
-        return <Badge className="badge-warning border-0">Disconnected</Badge>
-      case 'error':
-        return <Badge className="badge-error border-0">Error</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+const CLASS_TONE: Record<EntityDefinition["classification"], string> = {
+  public: "",
+  internal: "",
+  confidential: "text-amber-700 dark:text-amber-400",
+  restricted: "text-red-700 dark:text-red-400",
+}
+
+export default function ConnectionsPage() {
+  const sources = useApi<{ systems: DataSystem[] }>("/api/datasources")
+  const streams = useApi<StreamsPayload>("/api/streams")
+  const { can } = useSession()
+  const [selected, setSelected] = useState<{ system: DataSystem; entity: EntityDefinition } | null>(null)
+  const [environment, setEnvironment] = useState("production")
+  const [feedback, setFeedback] = useState<{ kind: "denied" | "success"; message: string } | null>(null)
+  const [draft, setDraft] = useState({ name: "", kind: "webhook", topic: "", secretRef: "vault://kv/data/", piiFields: "" })
+
+  const sampleUrl = selected ? `/api/datasources/${selected.system.id}/${selected.entity.id}?limit=6` : null
+  const sample = useApi<SamplePayload>(sampleUrl)
+
+  const createConnector = async () => {
+    setFeedback(null)
+    try {
+      await apiSend("/api/streams", "POST", { ...draft, piiFields: draft.piiFields.split(",").map((field) => field.trim()).filter(Boolean) })
+      setFeedback({ kind: "success", message: "Connector registered. Only the vault reference is stored; the secret itself never touches this system." })
+      setDraft({ name: "", kind: "webhook", topic: "", secretRef: "vault://kv/data/", piiFields: "" })
+      await streams.reload()
+    } catch (caught) {
+      setFeedback({ kind: "denied", message: caught instanceof Error ? caught.message : "Request failed" })
     }
   }
 
-  const handleConnect = (sourceId: string) => {
-    if (!hasPermission(currentUser, 'admin:write')) {
-      alert('You do not have permission to manage data connections.')
-      return
-    }
-    
-    setDataSources(dataSources.map(source => 
-      source.id === sourceId 
-        ? { ...source, status: 'connected', lastSync: new Date().toISOString().replace('T', ' ').split('.')[0] }
-        : source
-    ))
-  }
-
-  const handleDisconnect = (sourceId: string) => {
-    if (!hasPermission(currentUser, 'admin:write')) {
-      alert('You do not have permission to manage data connections.')
-      return
-    }
-    
-    setDataSources(dataSources.map(source => 
-      source.id === sourceId 
-        ? { ...source, status: 'disconnected', lastSync: undefined }
-        : source
-    ))
-  }
-
-  const handleSync = (sourceId: string) => {
-    if (!hasPermission(currentUser, 'admin:write')) {
-      alert('You do not have permission to sync data.')
-      return
-    }
-    
-    setDataSources(dataSources.map(source => 
-      source.id === sourceId 
-        ? { ...source, lastSync: new Date().toISOString().replace('T', ' ').split('.')[0] }
-        : source
-    ))
-  }
+  const systems = sources.data?.systems ?? []
 
   return (
-    <div className="min-h-screen fintech-gradient">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gradient mb-2">Data Connections</h1>
-            <p className="text-muted-foreground text-base">Connect to existing data warehouses and data streams</p>
-          </div>
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Navigation Links */}
-            <nav className="hidden lg:flex gap-2">
-              <Link href="/" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Refunds
-              </Link>
-              <Link href="/feature-flags" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Feature Flags
-              </Link>
-              <Link href="/kyc" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                KYC Queue
-              </Link>
-              <Link href="/compliance" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Compliance
-              </Link>
-              <Link href="/audit-logs" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Audit Logs
-              </Link>
-            </nav>
-            
-            {/* User Info & Role Switcher */}
-            <div className="flex items-center gap-3 border-l border-border pl-3">
-              <div className="text-sm text-right">
-                <div className="font-semibold text-foreground">{currentUser.name}</div>
-                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
-              </div>
-            </div>
-          </div>
+    <div>
+      <PageHeader
+        title="Connections"
+        description="The data sources a maker can bind to. Each entity is classified, its PII fields are marked, and DLP decides per environment whether it may be used at all — the same rules the solution checker enforces on publish."
+        actions={
+          <select className="h-8 rounded-md border border-input bg-background px-2 text-xs" value={environment} onChange={(event) => setEnvironment(event.target.value)}>
+            <option value="development">DLP view: development</option>
+            <option value="staging">DLP view: staging</option>
+            <option value="production">DLP view: production</option>
+          </select>
+        }
+      />
+
+      <div className="space-y-6 p-6">
+        {sources.error ? <Notice kind="denied">{sources.error}</Notice> : null}
+        {feedback ? <Notice kind={feedback.kind}>{feedback.message}</Notice> : null}
+        {sources.loading ? <Loading /> : null}
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Systems" value={systems.length} hint={`${systems.filter((system) => system.status === "connected").length} healthy`} />
+          <StatCard label="Bindable entities" value={systems.reduce((sum, system) => sum + system.entities.filter((entity) => entity.bindable).length, 0)} hint="With your permissions" />
+          <StatCard label="Restricted entities" value={systems.reduce((sum, system) => sum + system.entities.filter((entity) => entity.classification === "restricted").length, 0)} />
+          <StatCard label="Stream connectors" value={streams.data?.connectors.length ?? 0} hint={`${streams.data?.health.eventsToday ?? 0} events today`} />
         </div>
 
-        {/* Compliance Status Banner */}
-        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
-            <Badge className="badge-success border-0">SOC2 Ready</Badge>
-            <Badge className="badge-info border-0">SoD Enforced</Badge>
-            <Badge className="badge-info border-0">Audit Trail: Immutable</Badge>
-            <Badge className="badge-info border-0">AES-256 Encrypted</Badge>
-            <Badge className="badge-info border-0">TLS 1.3</Badge>
-          </div>
-        </div>
-
-        {/* MCP Integration Banner */}
-        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
-          <div className="flex items-start gap-4">
-            <div className="text-4xl">🔌</div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground mb-1">MCP-Based Data Connectivity</h3>
-              <p className="text-sm text-muted-foreground">
-                Devin uses Model Context Protocol (MCP) to connect to PostgreSQL, SQL Server, Snowflake, BigQuery, Redshift, and MySQL.
-                Connectors provide natural language querying and schema introspection capabilities.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Badge className="badge-info border-0">PostgreSQL</Badge>
-              <Badge className="badge-info border-0">SQL Server</Badge>
-              <Badge className="badge-info border-0">Snowflake</Badge>
-              <Badge className="badge-info border-0">BigQuery</Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Sources</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{dataSources.length}</div>
-            </CardContent>
-          </Card>
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Connected</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-green-600">{dataSources.filter(s => s.status === 'connected').length}</div>
-            </CardContent>
-          </Card>
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Tables</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{dataSources.reduce((sum, s) => sum + s.tables, 0)}</div>
-            </CardContent>
-          </Card>
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Total Rows</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-foreground">{(dataSources.reduce((sum, s) => sum + s.rows, 0) / 1000000).toFixed(1)}M</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Data Sources Table */}
-        <Card className="card-shadow border-border mb-8 bg-white/80 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base font-semibold">Data Sources</CardTitle>
-            <CardDescription>MCP-based connectors to data warehouses and databases</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-foreground">Source</TableHead>
-                  <TableHead className="text-foreground">Type</TableHead>
-                  <TableHead className="text-foreground">Status</TableHead>
-                  <TableHead className="text-foreground">Tables</TableHead>
-                  <TableHead className="text-foreground">Rows</TableHead>
-                  <TableHead className="text-foreground">Last Sync</TableHead>
-                  <TableHead className="text-foreground">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dataSources.map((source) => (
-                  <TableRow key={source.id} className="border-border hover:bg-white/50 transition-colors">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="text-2xl">{source.icon}</div>
-                        <div>
-                          <div className="font-medium text-foreground">{source.name}</div>
-                          <div className="text-xs text-muted-foreground">{source.description}</div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <Section title="Data systems" description="Click an entity to browse its schema and a governed sample.">
+            <div className="grid gap-3 md:grid-cols-2">
+              {systems.map((system) => {
+                const env = system.environments.find((entry) => entry.environment === environment)
+                return (
+                  <Card key={system.id} className={env && !env.allowed ? "border-destructive/40" : ""}>
+                    <CardContent className="space-y-3 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-3">
+                          <VendorMark name={system.vendor} size={38} />
+                          <div>
+                            <div className="text-sm font-medium">{system.name}</div>
+                            <div className="text-[11px] text-muted-foreground">{system.vendor}</div>
+                            <div className="mt-0.5 text-[10px] text-muted-foreground/80">{system.protocol} · {system.auth}</div>
+                          </div>
                         </div>
+                        <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${STATUS[system.status]}`}>{system.status}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getTypeBadge(source.type)}>
-                        {source.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(source.status)}
-                    </TableCell>
-                    <TableCell className="text-foreground">{source.tables}</TableCell>
-                    <TableCell className="text-foreground">{source.rows.toLocaleString()}</TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {source.lastSync || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        {source.status === 'connected' && (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleSync(source.id)}
-                              className="border-border h-8 text-xs"
-                            >
-                              Sync
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDisconnect(source.id)}
-                              className="border-border h-8 text-xs"
-                            >
-                              Disconnect
-                            </Button>
-                          </>
-                        )}
-                        {source.status === 'disconnected' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleConnect(source.id)}
-                            className="button-hover h-8 text-xs"
-                          >
-                            Connect
-                          </Button>
-                        )}
-                        {source.status === 'error' && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleConnect(source.id)}
-                            className="button-hover h-8 text-xs"
-                          >
-                            Retry
-                          </Button>
-                        )}
+                      <div className="flex flex-wrap gap-1 text-[10px]">
+                        <Badge variant="outline">
+                          <KeyRound className="mr-1 size-3" /> {system.auth}
+                        </Badge>
+                        <Badge variant="outline">{system.residency}</Badge>
+                        <Badge variant="outline">{system.refresh}</Badge>
+                        <Badge variant="outline">{system.latencyMs} ms</Badge>
+                        {env ? (
+                          <Badge variant="outline" className={env.allowed ? "" : "border-destructive/50 text-destructive"}>
+                            <ShieldCheck className="mr-1 size-3" /> {env.allowed ? env.group : `blocked in ${environment}`}
+                          </Badge>
+                        ) : null}
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-
-        {/* Integration Comparison */}
-        <Card className="card-shadow border-border bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Data Integration Comparison: Devin vs Power Apps</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold text-foreground mb-3">Devin MCP-Based Connectivity</h4>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>PostgreSQL</strong> - Native connector with schema introspection</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>SQL Server/Azure SQL</strong> - Via CData Connect AI or direct MCP</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Snowflake</strong> - Native connector with natural language queries</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>BigQuery</strong> - Native connector for analytics</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Redshift</strong> - Native connector for AWS data warehouses</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>MySQL</strong> - Native connector for legacy systems</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Natural Language Queries</strong> - AI-powered data query capabilities</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Cross-Source Queries</strong> - Query across multiple data sources</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-foreground mb-3">Power Apps Data Connectivity</h4>
-                  <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>SQL Server Connector</strong> - Native Azure SQL support</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Virtual Tables</strong> - Data appears without being stored</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-green-500 mt-1">✓</span>
-                      <span><strong>Microsoft Ecosystem</strong> - Deep Azure integration</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-orange-500 mt-1">!</span>
-                      <span><strong>Azure Synapse Limitations</strong> - CRUD not fully supported</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-orange-500 mt-1">!</span>
-                      <span><strong>Ecosystem Lock-in</strong> - Limited to Microsoft stack</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-orange-500 mt-1">!</span>
-                      <span><strong>No Natural Language Queries</strong> - Requires SQL expertise</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h4 className="font-semibold text-foreground mb-2">Azure SQL Warehouse Integration</h4>
-                <p className="text-sm text-muted-foreground mb-3">
-                  For Azure-centric organizations, Devin can connect to Azure SQL Data Warehouse through:
-                </p>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• <strong>Direct MCP</strong> - Native SQL Server connector</li>
-                  <li>• <strong>CData Connect AI</strong> - AI-powered virtualization layer</li>
-                  <li>• <strong>VNET Integration</strong> - Private network access for Azure resources</li>
-                  <li>• <strong>Entra ID Authentication</strong> - Seamless Microsoft identity integration</li>
-                </ul>
-              </div>
+                      <div className="divide-y divide-border rounded-md border border-border">
+                        {system.entities.map((entity) => (
+                          <button
+                            key={entity.id}
+                            onClick={() => setSelected({ system, entity })}
+                            disabled={!entity.bindable}
+                            className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-60 ${selected?.entity.id === entity.id && selected.system.id === system.id ? "bg-primary/5" : ""}`}
+                          >
+                            <span className="font-medium">{entity.name}</span>
+                            <span className={`text-[10px] ${CLASS_TONE[entity.classification]}`}>{entity.classification}</span>
+                            {entity.piiFields.length ? <span className="text-[10px] text-muted-foreground">PII ×{entity.piiFields.length}</span> : null}
+                            <span className="ml-auto text-[10px] text-muted-foreground">{entity.fields.length} fields</span>
+                            {!entity.bindable ? <Lock className="size-3 text-muted-foreground" /> : null}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">owner {system.owner}</div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
-          </CardContent>
-        </Card>
+          </Section>
+
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Schema & governed sample</div>
+                {!selected ? <div className="text-xs text-muted-foreground">Select an entity to inspect it.</div> : null}
+                {selected ? (
+                  <>
+                    <div>
+                      <div className="text-sm font-medium">{selected.entity.name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {selected.system.name} · {selected.entity.description}
+                      </div>
+                    </div>
+                    <div className="divide-y divide-border rounded-md border border-border text-[11px]">
+                      {selected.entity.fields.map((field) => (
+                        <div key={field.name} className="flex items-center gap-2 px-2 py-1">
+                          <span className="font-mono">{field.name}</span>
+                          <span className="text-muted-foreground">{field.type}</span>
+                          {field.pii ? (
+                            <Badge variant="outline" className="text-[9px]">
+                              PII · masked unless cleared
+                            </Badge>
+                          ) : null}
+                          <span className="ml-auto truncate text-muted-foreground">{field.description}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {sample.error ? <Notice kind="denied">{sample.error}</Notice> : null}
+                    {sample.data ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          Sample ({sample.data.rows.length} rows, {sample.data.system.latencyMs} ms)
+                          {sample.data.piiMasked ? (
+                            <Badge variant="outline" className="text-[9px]">
+                              PII masked for you
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px]">
+                              PII visible (cleared role)
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="overflow-x-auto rounded-md border border-border">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {selected.entity.fields.slice(0, 4).map((field) => (
+                                  <TableHead key={field.name} className="text-[10px]">
+                                    {field.name}
+                                  </TableHead>
+                                ))}
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {sample.data.rows.map((row, index) => (
+                                <TableRow key={index}>
+                                  {selected.entity.fields.slice(0, 4).map((field) => (
+                                    <TableCell key={field.name} className="text-[11px]">
+                                      {formatCell(field.name, row[field.name], row)}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">Every sample read is audited with classification and masking state.</div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <Plug className="size-3.5" /> Stream connectors
+                </div>
+                {streams.error ? <Notice kind="denied">{streams.error}</Notice> : null}
+                <div className="divide-y divide-border rounded-md border border-border text-xs">
+                  {(streams.data?.connectors ?? []).map((connector) => (
+                    <div key={connector.id} className="space-y-0.5 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <VendorMark name={connector.kind} size={22} />
+                        <span className="font-medium">{connector.name}</span>
+                        <span className={`rounded-md px-1.5 py-0.5 text-[10px] ${STATUS[connector.status as keyof typeof STATUS] ?? ""}`}>{connector.status}</span>
+                        <span className="ml-auto text-[10px] text-muted-foreground">{connector.eventsToday} today · DLQ {connector.dlqDepth}</span>
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {connector.kind} · {connector.direction} · {connector.topic} · {connector.signatureAlgorithm} · schema {connector.schemaVersion} · last {relative(connector.lastEventAt)}
+                      </div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{connector.secretRef}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2 rounded-md bg-muted/40 p-3">
+                  <div className="text-[11px] font-medium">Register a connector</div>
+                  <Input className="h-7 text-xs" placeholder="Name" value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select className="h-7 rounded-md border border-input bg-background px-2 text-xs" value={draft.kind} onChange={(event) => setDraft({ ...draft, kind: event.target.value })}>
+                      {["webhook", "kafka", "kinesis", "postgres_cdc", "snowflake", "sftp"].map((kind) => (
+                        <option key={kind}>{kind}</option>
+                      ))}
+                    </select>
+                    <Input className="h-7 text-xs" placeholder="topic.name" value={draft.topic} onChange={(event) => setDraft({ ...draft, topic: event.target.value })} />
+                  </div>
+                  <Input className="h-7 font-mono text-xs" placeholder="vault://kv/data/…" value={draft.secretRef} onChange={(event) => setDraft({ ...draft, secretRef: event.target.value })} />
+                  <Input className="h-7 text-xs" placeholder="PII fields to redact at ingress (comma-separated)" value={draft.piiFields} onChange={(event) => setDraft({ ...draft, piiFields: event.target.value })} />
+                  <Button size="sm" className="w-full" disabled={!can("stream:manage")} onClick={() => void createConnector()}>
+                    Register
+                  </Button>
+                  {!can("stream:manage") ? <div className="text-[10px] text-muted-foreground">Requires stream:manage (server-enforced).</div> : null}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   )

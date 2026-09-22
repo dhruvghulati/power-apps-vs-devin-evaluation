@@ -1,379 +1,180 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { PageHeader } from "@/components/app-shell"
+import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { getCurrentUser, hasPermission } from "@/lib/rbac"
-import { getChainStatus, getAuditEvents } from "@/lib/audit"
-import { continuousSoDCheck, getSoDMatrix } from "@/lib/sod"
+import { Card, CardContent } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useApi } from "@/lib/client/api"
 
-export default function ComplianceDashboard() {
-  const [chainStatus, setChainStatus] = useState<any>(null)
-  const [sodStatus, setSodStatus] = useState<any>(null)
-  const [auditEventCount, setAuditEventCount] = useState(0)
-  const [currentUser, setCurrentUserState] = useState(getCurrentUser())
-  
-  useEffect(() => {
-    const loadData = async () => {
-      setChainStatus(await getChainStatus())
-      setSodStatus(continuousSoDCheck())
-      const events = await getAuditEvents()
-      setAuditEventCount(events.length)
-    }
-    loadData()
-  }, [])
+interface Control {
+  id: string
+  framework: string[]
+  name: string
+  description: string
+  status: "pass" | "attention" | "fail"
+  evidence: string
+  automated: boolean
+}
 
-  const complianceItems = [
-    {
-      domain: "Security (CC1-CC9)",
-      status: "compliant",
-      lastReview: "2026-01-15",
-      evidence: "Available",
-      score: 95
-    },
-    {
-      domain: "Availability (A1)",
-      status: "compliant",
-      lastReview: "2026-01-10",
-      evidence: "Available",
-      score: 88
-    },
-    {
-      domain: "Confidentiality (C1)",
-      status: "compliant",
-      lastReview: "2026-01-12",
-      evidence: "Available",
-      score: 92
-    },
-    {
-      domain: "Processing Integrity (PI1)",
-      status: "compliant",
-      lastReview: "2026-01-14",
-      evidence: "Available",
-      score: 90
-    },
-    {
-      domain: "Privacy (P1-P8)",
-      status: "partial",
-      lastReview: "2026-01-08",
-      evidence: "Partial",
-      score: 75
-    }
-  ]
+interface CompliancePayload {
+  controls: Control[]
+  score: number
+  byFramework: Record<string, { score: number; controls: number }>
+  chain: { valid: boolean; totalEvents: number; latestHash: string; verifiedAt: string; brokenAtSeq?: number }
+  sodMatrix: { a: string; b: string; reason: string }[]
+  accessReviews: { id: string; userId: string; reviewer: string; decision: string; at: string; notes: string }[]
+  retention: { framework: string; requirement: string; applies: string }[]
+}
 
-  const accessReview = {
-    lastReview: "2026-01-15",
-    nextReviewDue: "2026-04-15",
-    accountsReviewed: 45,
-    accountsRemoved: 3,
-    exceptions: 1
-  }
+const STATUS_VARIANT = { pass: "secondary", attention: "outline", fail: "destructive" } as const
 
-  const changeManagement = {
-    lastDeployment: "2026-01-18",
-    recentChanges: 5,
-    rollbackCapability: true,
-    approvalRate: "100%"
-  }
-
-  const riskAssessment = {
-    lastUpdated: "2026-01-15",
-    totalRisks: 12,
-    highRisks: 2,
-    mediumRisks: 5,
-    lowRisks: 5
-  }
-
-  const vendorInventory = [
-    { name: "AWS", type: "Cloud Provider", soc2: true, iso27001: true, lastReview: "2026-01-10" },
-    { name: "PostgreSQL", type: "Database", soc2: true, iso27001: true, lastReview: "2026-01-12" },
-    { name: "Stripe", type: "Payment Processor", pciDss: true, lastReview: "2026-01-08" },
-    { name: "SendGrid", type: "Email Service", soc2: true, lastReview: "2026-01-05" }
-  ]
+export default function CompliancePage() {
+  const { data, loading, error } = useApi<CompliancePayload>("/api/compliance")
+  const controls = data?.controls ?? []
 
   return (
-    <div className="min-h-screen fintech-gradient">
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
-          <div>
-            <h1 className="text-4xl font-bold text-gradient mb-2">Compliance Dashboard</h1>
-            <p className="text-muted-foreground text-base">SOC2, DORA, PCI DSS, and GDPR compliance monitoring</p>
-          </div>
-          <div className="flex flex-wrap gap-3 items-center">
-            {/* Navigation Links */}
-            <nav className="hidden lg:flex gap-2">
-              <Link href="/" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Refunds
-              </Link>
-              <Link href="/feature-flags" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Feature Flags
-              </Link>
-              <Link href="/kyc" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                KYC Queue
-              </Link>
-              <Link href="/audit-logs" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Audit Logs
-              </Link>
-              <Link href="/data-connections" className="inline-flex items-center px-4 py-2.5 bg-white/80 backdrop-blur-sm border border-border rounded-lg hover:bg-white hover:shadow-sm transition-all text-sm font-medium">
-                Data Connections
-              </Link>
-            </nav>
-            
-            {/* User Info */}
-            <div className="flex items-center gap-3 border-l border-border pl-3">
-              <div className="text-sm text-right">
-                <div className="font-semibold text-foreground">{currentUser.name}</div>
-                <div className="text-muted-foreground text-xs">{currentUser.roles[0]} • {currentUser.department}</div>
-              </div>
-            </div>
-          </div>
+    <div>
+      <PageHeader
+        title="Compliance controls"
+        description="Each control is evaluated against live system state on every request — the evidence column is computed, not attested in a spreadsheet."
+        actions={
+          <Badge variant={data?.chain.valid ? "secondary" : "destructive"}>
+            Audit chain {data?.chain.valid ? "verified" : `broken at seq ${data?.chain.brokenAtSeq}`}
+          </Badge>
+        }
+      />
+
+      <div className="space-y-6 p-6">
+        {error ? <Notice kind="error">{error}</Notice> : null}
+        {loading ? <Loading /> : null}
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Control score" value={`${data?.score ?? 0}%`} hint={`${controls.length} controls`} />
+          <StatCard label="Failing" value={controls.filter((control) => control.status === "fail").length} />
+          <StatCard label="Needs attention" value={controls.filter((control) => control.status === "attention").length} />
+          <StatCard label="Automated" value={controls.filter((control) => control.automated).length} hint="Evidence gathered without humans" />
         </div>
 
-        {/* Compliance Status Banner */}
-        <div className="bg-white/80 backdrop-blur-sm border border-border rounded-xl p-4 mb-8 card-shadow">
-          <div className="flex flex-wrap gap-2 items-center">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Compliance Status:</span>
-            <Badge className="badge-success border-0">SOC2 Ready</Badge>
-            <Badge className="badge-info border-0">DORA Compliant</Badge>
-            <Badge className="badge-warning border-0">PCI DSS v4.0</Badge>
-            <Badge className="badge-info border-0">GDPR Ready</Badge>
+        <Section title="Frameworks">
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {Object.entries(data?.byFramework ?? {}).map(([framework, value]) => (
+              <Card key={framework}>
+                <CardContent className="px-3 py-2">
+                  <div className="text-xs font-medium">{framework}</div>
+                  <div className="text-lg font-semibold tabular-nums">{value.score}%</div>
+                  <div className="text-[11px] text-muted-foreground">{value.controls} controls</div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-        </div>
+        </Section>
 
-        {/* Overall Compliance Score */}
-        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Overall Compliance Score</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-6">
-              <div className="text-5xl font-bold text-green-600">88%</div>
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '88%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Overall</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '95%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Security</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '88%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Availability</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '92%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Confidentiality</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-green-600 h-3 rounded-full" style={{ width: '90%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Processing Integrity</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div className="bg-yellow-500 h-3 rounded-full" style={{ width: '75%' }}></div>
-                  </div>
-                  <span className="text-sm text-muted-foreground">Privacy</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Critical Compliance Areas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Audit Trail Integrity */}
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Audit Trail Integrity</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Chain Status</span>
-                  {chainStatus?.valid ? (
-                    <Badge className="badge-success border-0">Verified</Badge>
-                  ) : (
-                    <Badge className="badge-error border-0">Warning</Badge>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Total Events</span>
-                  <span className="text-sm font-semibold text-foreground">{chainStatus?.totalEvents || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Retention Period</span>
-                  <span className="text-sm font-semibold text-foreground">{chainStatus?.retentionYears || 7} years (SOX)</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Hot Storage</span>
-                  <span className="text-sm font-semibold text-foreground">{chainStatus?.hotStorageYears || 2} years (SEC)</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  {chainStatus?.storageCompliance}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* SoD Status */}
-          <Card className="card-shadow border-border hover:card-shadow-hover transition-shadow bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Segregation of Duties (SoD)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Monitoring Status</span>
-                  {sodStatus?.monitoringActive ? (
-                    <Badge className="badge-success border-0">Active</Badge>
-                  ) : (
-                    <Badge className="badge-warning border-0">Inactive</Badge>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Last Check</span>
-                  <span className="text-sm text-foreground">{sodStatus?.lastCheck ? new Date(sodStatus.lastCheck).toLocaleString() : 'Never'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Violations</span>
-                  <span className="text-sm font-semibold text-foreground">{sodStatus?.violations.length || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Users with Conflicts</span>
-                  <span className="text-sm font-semibold text-foreground">{sodStatus?.usersWithConflicts || 0}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-2">
-                  Preventive SoD enforcement enabled • Continuous monitoring active
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Compliance Checklist */}
-        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">SOC2 Compliance Checklist</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Information security policy (version 1.2, owner: CISO, last-reviewed: 2026-01-10)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Risk assessment register (last updated: 2026-01-15, 12 risks identified)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Vendor inventory (4 vendors, SOC2/ISO reports on file)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Access review logs (quarterly, last: 2026-01-15, 3 accounts removed)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Change management trails (5 recent deployments tracked)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Immutable audit logs (event-sourced, hash chains verified)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">SoD enforcement (preventive + continuous monitoring)</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <Badge className="badge-success border-0">✓</Badge>
-                <span className="text-sm text-foreground">Processing integrity controls (approval thresholds enforced)</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Access Review */}
-        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Access Review Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <div className="text-sm text-muted-foreground">Last Review</div>
-                <div className="text-lg font-semibold text-foreground">{accessReview.lastReview}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Next Review Due</div>
-                <div className="text-lg font-semibold text-foreground">{accessReview.nextReviewDue}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Accounts Reviewed</div>
-                <div className="text-lg font-semibold text-foreground">{accessReview.accountsReviewed}</div>
-              </div>
-              <div>
-                <div className="text-sm text-muted-foreground">Accounts Removed</div>
-                <div className="text-lg font-semibold text-foreground">{accessReview.accountsRemoved}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Vendor Inventory */}
-        <Card className="mb-8 card-shadow border-border bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">Third-Party Vendor Inventory</CardTitle>
-            <CardDescription>Vendors handling customer data with compliance certifications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border">
-                  <TableHead className="text-foreground">Vendor</TableHead>
-                  <TableHead className="text-foreground">Type</TableHead>
-                  <TableHead className="text-foreground">SOC 2</TableHead>
-                  <TableHead className="text-foreground">ISO 27001</TableHead>
-                  <TableHead className="text-foreground">PCI DSS</TableHead>
-                  <TableHead className="text-foreground">Last Review</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {vendorInventory.map((vendor, index) => (
-                  <TableRow key={index} className="border-border table-row-hover">
-                    <TableCell className="font-medium text-foreground">{vendor.name}</TableCell>
-                    <TableCell className="text-foreground">{vendor.type}</TableCell>
-                    <TableCell>
-                      {vendor.soc2 ? <Badge className="badge-success border-0">✓</Badge> : <Badge variant="outline">—</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      {vendor.iso27001 ? <Badge className="badge-success border-0">✓</Badge> : <Badge variant="outline">—</Badge>}
-                    </TableCell>
-                    <TableCell>
-                      {vendor.pciDss ? <Badge className="badge-success border-0">✓</Badge> : <Badge variant="outline">—</Badge>}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{vendor.lastReview}</TableCell>
+        <Section title="Control register">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Control</TableHead>
+                    <TableHead>Frameworks</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Live evidence</TableHead>
                   </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {controls.map((control) => (
+                    <TableRow key={control.id}>
+                      <TableCell>
+                        <div className="font-mono text-[11px] text-muted-foreground">{control.id}</div>
+                        <div className="text-sm">{control.name}</div>
+                        <div className="text-xs text-muted-foreground">{control.description}</div>
+                      </TableCell>
+                      <TableCell className="space-x-1">
+                        {control.framework.map((framework) => (
+                          <Badge key={framework} variant="outline" className="text-[10px]">
+                            {framework}
+                          </Badge>
+                        ))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[control.status]}>{control.status}</Badge>
+                      </TableCell>
+                      <TableCell className="max-w-md text-xs text-muted-foreground">{control.evidence}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Section>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Section title="Segregation of duties" description="These pairs are refused at provisioning time, so a conflicting grant never exists to be detected later.">
+            <Card>
+              <CardContent className="space-y-2 p-4 text-xs">
+                {(data?.sodMatrix ?? []).map((conflict) => (
+                  <div key={`${conflict.a}-${conflict.b}`} className="rounded-md border border-border p-2">
+                    <div className="font-medium">{[conflict.a, conflict.b].join("  ✕  ")}</div>
+                    <div className="text-muted-foreground">{conflict.reason}</div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </Section>
+
+          <Section title="Retention">
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Framework</TableHead>
+                      <TableHead>Requirement</TableHead>
+                      <TableHead>Applies to</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(data?.retention ?? []).map((rule) => (
+                      <TableRow key={rule.framework}>
+                        <TableCell className="text-xs">{rule.framework}</TableCell>
+                        <TableCell className="text-xs">{rule.requirement}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{rule.applies}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </Section>
+        </div>
+
+        <Section title="Access reviews">
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Reviewer</TableHead>
+                    <TableHead>Decision</TableHead>
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(data?.accessReviews ?? []).map((review) => (
+                    <TableRow key={review.id}>
+                      <TableCell className="text-xs">{review.userId}</TableCell>
+                      <TableCell className="text-xs">{review.reviewer}</TableCell>
+                      <TableCell className="text-xs">{review.decision}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{review.notes}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </Section>
       </div>
     </div>
   )

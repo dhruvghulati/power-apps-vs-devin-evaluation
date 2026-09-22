@@ -6,181 +6,61 @@ This project demonstrates Devin's capability to build enterprise-grade internal 
 
 ## Applications
 
-### 1. Refunds Dashboard (`/`)
-- **Purpose**: Process and manage refund requests with approval workflows
-- **Key Features**:
-  - Immutable event-sourced audit trail with SHA-256 hash chains
-  - RBAC with 6 hierarchical roles (admin, manager, analyst, processor, auditor, viewer)
-  - Preventive SoD (Segregation of Duties) enforcement
-  - Processing integrity with approval thresholds
-  - PII masking in audit logs
-  - Real-time compliance status indicators
-  - CSV export with audit logging
+All pages share one server-side policy engine, one signed session, one hash-chained audit log and one persona switcher (Alice admin, Bob manager, Carol analyst, David processor, Eva auditor, Frank viewer, Grace KYC reviewer, Hana KYC approver, Ivan payments operator, Jia experiment owner, Kai director).
 
-### 2. Feature Flags Dashboard (`/feature-flags`)
-- **Purpose**: Manage feature rollouts and experiments
-- **Key Features**:
-  - Boolean, percentage, and multivariate flags
-  - Target user segmentation
-  - Real-time toggle and percentage adjustment
-  - Immutable audit trail for all flag changes
-  - RBAC with permission-based UI rendering
-  - Category-based organization (Product, Infrastructure, Compliance, UX)
-
-### 3. KYC Review Queue (`/kyc`)
-- **Purpose**: Human-in-the-loop compliance review for identity verification
-- **Key Features**:
-  - SLA tracking with breach alerts
-  - Sanctions and PEP (Politically Exposed Persons) screening
-  - Document verification workflow
-  - Risk-based routing (low/medium/high)
-  - Escalation to BSA Officer for complex cases
-  - Immutable audit trail with before/after state capture
-  - Regulatory deadline awareness (Reg E timelines)
-
-### 4. Compliance Dashboard (`/compliance`)
-- **Purpose**: Centralized view of all compliance controls
-- **Key Features**:
-  - SOC2 compliance score (88% overall)
-  - Domain-specific scores (Security, Availability, Confidentiality, Processing Integrity, Privacy)
-  - Access review status
-  - Change management tracking
-  - Risk assessment register
-  - Third-party vendor inventory with certifications
-  - SoD monitoring status
-  - Audit trail integrity verification
-
-### 5. Audit Logs Viewer (`/audit-logs`)
-- **Purpose**: View and export immutable audit trail
-- **Key Features**:
-  - Event-sourced audit log viewer
-  - Cryptographic chain integrity verification
-  - Before/after state capture for all operations
-  - PII masking (toggleable for authorized users)
-  - Filtering by event type, actor, date range
-  - CSV export with cryptographic signatures
-  - Retention requirement indicators (SOX: 7 years, SEC: 6 years, MiFID II: 5 years)
+| Route | Purpose | Controls demonstrated |
+|-------|---------|-----------------------|
+| `/` | Refunds console | Maker-checker, role-tiered approval slots (manager → compliance → director by amount), entity scope, PII masking |
+| `/payments` | Payout control tower | Idempotency keys, sanctions/velocity screening, dual approval separated from execution, balanced double-entry ledger, reconciliation |
+| `/kyc` | KYC review workbench | AES-256-GCM document store, single-use identity-bound download grants, reviewer/approver separation |
+| `/feature-flags` | Flags & experiments | Change requests, production approval obligation, regulated-experiment sign-off, kill switch with its own permission |
+| `/compliance` | Control registry | SOC 2 / SOX / PCI DSS / GDPR / AMLR / DORA / MiFID II / Consumer Duty / SEC 17a-4 mappings with live audit-chain and SoD evidence |
+| `/audit-logs` | Tamper-evident audit | SHA-256 hash chain, before/after snapshots, denied attempts recorded, PII masking by permission |
+| `/data-connections` | Data source catalog | Seven synthetic systems (core ledger, PSP, KYC vendor, warehouse, CRM, document store, ticketing) with entity schemas, classification, PII flags, DLP status, health |
+| `/data-streams` | Live streams | HMAC-signed webhook ingest, PII redaction at ingress, dead-lettering, governed replay, SSE live feed |
+| `/studio` | Maker studio | Templates, governed component library, drag-and-drop designer (palette → canvas, reorder, properties, undo/redo, live preview), solution checker, publish gating |
+| `/studio/flows` | Flow builder | Declarative triggers/conditions/approvals/actions, run history, approval tasks with maker-checker |
+| `/admin` | Admin centre | Environments, DLP policies, app/flow inventory, maker analytics, role grants with preventive SoD, access reviews |
 
 ## Architecture
 
-### Immutable Audit Trail (Event Sourcing)
+```
+app/api/**            Route handlers — every mutation goes through handler() → authorize() → audit()
+lib/server/policy.ts  RBAC + ABAC (entity scope) + MFA obligations + maker-checker + SoD + approval slots
+lib/server/audit.ts   Append-only SHA-256 hash chain, verifyChain(), publish() to SSE subscribers
+lib/server/crypto.ts  AES-256-GCM document encryption, HMAC signing, session signing
+lib/server/payments.ts Screening, PSP adapter boundary, balanced ledger postings, reconciliation
+lib/server/streams.ts HMAC verification, PII redaction, dead-letter, replay
+lib/server/datasources.ts Synthetic data systems, entity schemas, deterministic sample rows, PII masking
+lib/server/studio.ts  Component library, templates, solution checker, DLP, publish rules
+lib/server/flows.ts   Flow runtime (trigger → condition → approval → action)
+lib/server/store.ts   In-memory seed database (demo only — see HEAD_OF_ENGINEERING_EVALUATION.md)
+components/studio/    Drag-and-drop designer and governed component renderer
+```
 
-**Why This Matters**: Traditional logging fails under SOX/SEC frameworks. Regulators require append-only, tamper-evident records.
+### Non-negotiables
 
-**Implementation**:
-- **Event-sourced pattern**: Never UPDATE, only APPEND
-- **SHA-256 hash chains**: Each event includes hash of previous event
-- **Tamper evidence**: Cryptographic integrity proof computationally infeasible to forge
-- **Before/after state capture**: Every change shows state before AND after
-- **Retention compliance**: 7-year retention (SOX), 6-year with 2-year hot storage (SEC)
+- **UI never protects data.** Buttons are hidden for usability, but `scripts/smoke.sh` calls every protected endpoint directly as each persona and asserts 403s.
+- **Denials are audited.** A blocked action appends a `*.denied` event with the policy reason before the request is rejected.
+- **Approvals are functions, not head-counts.** A $2,500 refund needs a manager *and* a compliance approver; two managers are rejected server-side.
+- **Generated apps re-authorize.** Every data binding in a studio-built app is re-checked against the caller's permissions on each request.
 
-**Key Files**:
-- `lib/audit.ts` - Audit event model and hash chain implementation
-- Audit events stored in append-only structure
-- Chain integrity verification on every page load
+## Verification
 
-### RBAC with Preventive SoD
+```bash
+npm test          # 27 Vitest unit tests: policy, SoD, approval slots, audit chain, AES-GCM, ledger, HMAC, redaction, DLP, flows
+npm run lint
+npx tsc --noEmit
+npm run build
+npm start &       # then:
+npm run smoke     # 34 persona-driven API assertions against the running server
+```
 
-**Why This Matters**: SoD is the most frequently cited audit finding in fintech. Detective SoD (quarterly reviews) is insufficient.
-
-**Implementation**:
-- **6 hierarchical roles**: admin, manager, analyst, processor, auditor, viewer
-- **Preventive SoD**: Block toxic role combinations at provisioning time
-- **Incompatibility matrix**: Explicit catalog of conflicting role pairs
-- **Continuous monitoring**: Real-time SoD violation detection
-- **Permission-based UI**: Buttons and actions hidden based on user permissions
-
-**Key Files**:
-- `lib/rbac.ts` - Role definitions, permissions, and permission checking
-- `lib/sod.ts` - SoD enforcement and continuous monitoring
-
-**SoD Conflict Examples**:
-- Manager cannot also be Developer: conflict of interest in financial decisions
-- Manager cannot also be Processor: single person cannot both request and approve
-- Processor cannot also be Auditor: cannot audit own processing activities
-- Auditor cannot also be Manager: lack of independence in review process
-
-### Processing Integrity
-
-**Why This Matters**: Fintech requires reproducible calculations and approval workflows for high-value transactions.
-
-**Implementation**:
-- **Approval thresholds**:
-  - Amounts <$100: No approval required
-  - Amounts $100-$1000: Manager approval required
-  - Amounts $1000-$5000: Manager + BSA officer approval
-  - Amounts >$5000: Manager + BSA officer + Director approval
-- **Validation checks**: Amount validation, currency validation, duplicate detection
-- **Change tracking**: Last modified timestamp, modified by user, change history
-- **Reproducible calculations**: Calculation checksums for dispute resolution
-
-### Data Security Controls
-
-**Why This Matters**: Fintech requires field-level encryption and data residency control for regulatory compliance.
-
-**Implementation**:
-- **Encryption indicators**: AES-256 at rest, TLS 1.3 in transit
-- **PII masking**: Email addresses and names masked in audit logs
-- **PII unmasking**: Only users with `audit:pii_view` permission can see unmasked data
-- **Data residency**: US-East-1 data center
-- **Session security**: 30-minute timeout, MFA required, concurrent session limits
+A critical review of what is production-ready and what is demo-only lives in `HEAD_OF_ENGINEERING_EVALUATION.md`.
 
 ## Regulatory Compliance
 
-### SOC 2 (Service Organization Control 2)
-
-**Trust Services Criteria Covered**:
-- **Security (CC1-CC9)**: Mandatory for all SOC 2 audits
-  - CC6 (Logical and Physical Access Controls): RBAC, SoD, access reviews
-  - CC7 (System Operations): Incident response, vulnerability management
-- **Availability (A1)**: System uptime, disaster recovery, business continuity
-- **Confidentiality (C1)**: Protection of confidential information
-- **Processing Integrity (PI1)**: Completeness, accuracy, timeliness, authorization, validity
-- **Privacy (P1-P8)**: OECD privacy principles (notice, choice, consent, collection, use, retention, access, disclosure)
-
-**Evidence Provided**:
-- Immutable audit trail with hash chains
-- Access review logs (quarterly)
-- Change management trails
-- Risk assessment register
-- Vendor inventory with SOC2/ISO reports
-- SoD enforcement documentation
-
-### DORA (Digital Operational Resilience Act)
-
-**Compliance Features**:
-- ICT risk management
-- Incident reporting capability
-- Third-party oversight documentation
-- Risk register maintained as first-class database entity
-- Exit strategies documented for critical vendors
-
-### PCI DSS v4.0
-
-**Compliance Features**:
-- Least privilege enforcement
-- Unique user IDs
-- Access control policies
-- Cardholder data protection (tokenization indicators)
-- Regular access reviews
-
-### GDPR (General Data Protection Regulation)
-
-**Compliance Features**:
-- Data residency control (US-East-1)
-- PII masking in audit logs
-- Right to be forgotten (delete capability)
-- Data processing records
-- Breach-ready log exports
-
-### AML Regulation (EU 2024/1624)
-
-**Compliance Features**:
-- KYC review queue with human-in-the-loop approval
-- Sanctions screening integration
-- PEP (Politically Exposed Persons) screening
-- Five-year data retention (KYC decisions)
-- Risk-based verification
+The compliance registry (`lib/server/compliance.ts`) maps controls to SOC 2, SOX, PCI DSS v4.0, GDPR, AMLR (EU 2024/1624), DORA, MiFID II, Consumer Duty and SEC 17a-4. Audit-chain integrity and SoD conflicts are evaluated live; other control statuses are curated demo data and are labelled as such in the evaluation document.
 
 ## Cost Comparison
 
@@ -238,33 +118,30 @@ This project demonstrates Devin's capability to build enterprise-grade internal 
 - **Styling**: Tailwind CSS v4
 - **Audit Trail**: Custom event-sourced implementation with SHA-256 hash chains
 - **RBAC**: Custom implementation with preventive SoD
-- **Authentication**: Mock implementation (demo-ready for next-auth integration)
+- **Authentication**: Signed persona session (demo) — see evaluation doc for OIDC roadmap
+- **Tests**: Vitest unit suite + bash/curl API smoke suite
 - **Database**: In-memory for demo (production-ready for PostgreSQL/SQL Server)
 
 ## Quick Start
 
+Requires Node.js 20+ (built on Node 24). Clone, then:
+
 ```bash
-# Install dependencies
-npm install
-
-# Run development server
+npm install --legacy-peer-deps   # required — peer ranges predate React 19
 npm run dev
-
-# Open in browser
-# Local: http://localhost:3000 - Refunds Dashboard
-# Local: http://localhost:3000/feature-flags - Feature Flags Dashboard
-# Local: http://localhost:3000/kyc - KYC Review Queue
-# Local: http://localhost:3000/compliance - Compliance Dashboard
-# Local: http://localhost:3000/audit-logs - Audit Logs Viewer
-
-# Live Demo (Vercel)
-# https://power-apps-vs-devin-evaluation.vercel.app - Refunds Dashboard
-# https://power-apps-vs-devin-evaluation.vercel.app/feature-flags - Feature Flags Dashboard
-# https://power-apps-vs-devin-evaluation.vercel.app/kyc - KYC Review Queue
-# https://power-apps-vs-devin-evaluation.vercel.app/compliance - Compliance Dashboard
-# https://power-apps-vs-devin-evaluation.vercel.app/audit-logs - Audit Logs Viewer
-# https://power-apps-vs-devin-evaluation.vercel.app/data-connections - Data Connections
+# http://localhost:3000            Refunds
+# http://localhost:3000/payments   Payouts
+# http://localhost:3000/kyc        KYC
+# http://localhost:3000/studio     Maker studio
+# http://localhost:3000/studio/flows  Flow builder
+# http://localhost:3000/admin      Admin centre
 ```
+
+No login needed — switch personas with the identity chip in the top bar (Alice admin, Bob manager, Eva auditor, Frank viewer, Grace/Hana KYC, Ivan payments, Jia experiments, Kai director) and the server re-authorizes every request for that role.
+
+**State is in-memory seed data** — it resets when the dev process restarts, and multi-step flows/approvals can lose state across serverless instances on hosted previews. For the full demo (including approval pause/resume), run locally and follow the timed walkthrough in `DEMO_SCRIPT.md`.
+
+Optional environment variables (demo fallbacks are used when absent): `SESSION_SECRET`, `DOCUMENT_ENCRYPTION_KEY`, `DOCUMENT_KEY_ID`, `STREAM_SECRET`.
 
 ## Demo Script
 
