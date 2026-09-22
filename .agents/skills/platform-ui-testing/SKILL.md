@@ -41,3 +41,13 @@ description: End-to-end UI testing playbook for the governed Northwind maker pla
 ## Audit regression
 - Bob’s owner production-publish attempt should both show the independent-approver 403 and create `app.publish.denied` for `app_5001`.
 - Verify on `/audit-logs` with event type `app.publish` and outcome `deny`; the chain should remain verified.
+- Do not trust `/audit-logs?outcome=deny` as a pre-filtered deep link: the page initializes its React filter state independently of the URL and may show mixed outcomes. Select `deny` in the outcome dropdown and wait for `GET /api/audit?outcome=deny`.
+
+## Demo-script edge cases
+- The refunds table has inline Decision controls; there is no row/detail-open affordance for “open a pending refund.”
+- The successful refund-decision POST returns the updated refund but does not include `awaitingRoles`; read the refreshed GET/UI for the next-role display instead.
+- Flow approval task buttons stay disabled until Decision notes are entered. For two high-value tasks, keep notes text distinct so approve/reject evidence is unambiguous.
+- If the Flow trigger sample shows a stale JSON parse banner after edits, reload or reselect the flow so `sampleEdits` resets, then paste valid compact JSON before pressing Test.
+- `/studio` component tiles are previews, not necessarily working controls. The Secure Document Uploader tile is a static dashed `div` with no file input/drop handler; do not claim it can accept a file.
+- The designer supports drag-and-drop, plus-sign click, and double-click append. If synthetic browser drag only activates the thin drop-zone line without inserting, use double-click as a fallback and report the drag result separately rather than silently treating it as a drag success.
+- Hana cannot see Connections; after flow approval as Hana, switch back to Bob before demonstrating `/data-connections`.

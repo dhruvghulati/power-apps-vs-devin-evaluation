@@ -1,5 +1,5 @@
 import { found, handler, HttpError, readJson, required } from '@/lib/server/api'
-import { outstandingApprovalSlots, requiredApprovals } from '@/lib/server/policy'
+import { outstandingApprovalSlots, requiredApprovals, roles } from '@/lib/server/policy'
 import { projectRefund } from '@/lib/server/projections'
 import { db, timestamp } from '@/lib/server/store'
 
@@ -59,5 +59,12 @@ export const POST = handler(async ({ user, authorize, audit }, request, params) 
     metadata: { notes, obligations, threshold: requiredApprovals(refund.amountMinor).label },
   })
 
-  return Response.json({ refund: projectRefund(refund, user), obligations })
+  return Response.json({
+    refund: projectRefund(refund, user),
+    obligations,
+    awaitingRoles: outstandingApprovalSlots(
+      refund.amountMinor,
+      refund.approvals.filter((a) => a.decision === 'approved').map((a) => a.role),
+    ).map((slot) => slot.map((r) => roles[r].name).join(' / ')),
+  })
 })

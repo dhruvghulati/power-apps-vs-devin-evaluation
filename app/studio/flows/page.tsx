@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { ArrowDown, Bell, Braces, CheckSquare, ChevronRight, Clock, Database, GitBranch, GripVertical, Play, Plus, RotateCcw, Trash2, Zap } from "lucide-react"
 import { PageHeader } from "@/components/app-shell"
 import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
@@ -176,6 +176,14 @@ export default function FlowBuilderPage() {
 
   const sampleFor = data?.samples?.[draft?.trigger ?? ""] ?? {}
   const sampleText = sampleEdits && sampleEdits.trigger === draft?.trigger ? sampleEdits.text : JSON.stringify(sampleFor, null, 2)
+  const sampleError = useMemo(() => {
+    try {
+      JSON.parse(sampleText || "{}")
+      return null
+    } catch (caught) {
+      return caught instanceof Error ? caught.message : "Invalid JSON"
+    }
+  }, [sampleText])
   const fieldSuggestions = [...new Set(flattenKeys(sampleFor).concat(flattenKeys(sampleEdits ? safeParse(sampleEdits.text) : {}), ["topic", "status"]))].slice(0, 60)
 
   const select = (id: string) => {
@@ -355,7 +363,7 @@ export default function FlowBuilderPage() {
                       <option value="production">production</option>
                     </select>
                     <div className="ml-auto flex gap-2">
-                      <Button size="sm" variant="outline" disabled={!can("flow:build")} onClick={() => void test()} title="Run the canvas definition against the sample event (server-side)">
+                      <Button size="sm" variant="outline" disabled={!can("flow:build") || Boolean(sampleError)} onClick={() => void test()} title="Run the canvas definition against the sample event (server-side)">
                         <Play className="mr-1 size-3.5" /> Test
                       </Button>
                       {selected && !isNew ? (
@@ -404,11 +412,18 @@ export default function FlowBuilderPage() {
                           </button>
                         </div>
                         <textarea
-                          className="h-28 w-full rounded-md border border-input bg-background p-2 font-mono text-[11px] leading-relaxed"
+                          className={`h-28 w-full rounded-md border bg-background p-2 font-mono text-[11px] leading-relaxed ${sampleError ? "border-red-500/60" : "border-input"}`}
                           value={sampleText}
-                          onChange={(event) => draft && setSampleEdits({ trigger: draft.trigger, text: event.target.value })}
+                          onChange={(event) => {
+                            if (!draft) return
+                            setSampleEdits({ trigger: draft.trigger, text: event.target.value })
+                            setFeedback(null)
+                          }}
                           spellCheck={false}
                         />
+                        {sampleError ? (
+                          <div className="mt-1 text-[10px] text-red-600 dark:text-red-400">Invalid JSON: {sampleError}</div>
+                        ) : null}
                         <div className="mt-1 text-[10px] text-muted-foreground">
                           Testing sends this payload as the trigger event; <span className="font-mono">trigger</span> and <span className="font-mono">run</span> metadata are injected server-side.
                         </div>

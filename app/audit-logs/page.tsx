@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { Suspense, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Download } from "lucide-react"
 import { PageHeader } from "@/components/app-shell"
 import { Loading, Notice, Section, StatCard } from "@/components/data-ui"
@@ -36,9 +37,10 @@ interface AuditPayload {
   piiMasked: boolean
 }
 
-export default function AuditLogsPage() {
-  const [eventType, setEventType] = useState("")
-  const [outcome, setOutcome] = useState("")
+function AuditLogsView() {
+  const initial = useSearchParams()
+  const [eventType, setEventType] = useState(() => initial.get("eventType") ?? "")
+  const [outcome, setOutcome] = useState(() => initial.get("outcome") ?? "")
   const query = useMemo(() => {
     const params = new URLSearchParams()
     if (eventType) params.set("eventType", eventType)
@@ -134,5 +136,13 @@ export default function AuditLogsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function AuditLogsPage() {
+  return (
+    <Suspense>
+      <AuditLogsView />
+    </Suspense>
   )
 }

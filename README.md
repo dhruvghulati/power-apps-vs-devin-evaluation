@@ -124,15 +124,22 @@ The compliance registry (`lib/server/compliance.ts`) maps controls to SOC 2, SOX
 
 ## Quick Start
 
+Requires Node.js 20+ (built on Node 24). Clone, then:
+
 ```bash
-npm install
+npm install --legacy-peer-deps   # required — peer ranges predate React 19
 npm run dev
 # http://localhost:3000            Refunds
 # http://localhost:3000/payments   Payouts
 # http://localhost:3000/kyc        KYC
 # http://localhost:3000/studio     Maker studio
+# http://localhost:3000/studio/flows  Flow builder
 # http://localhost:3000/admin      Admin centre
 ```
+
+No login needed — switch personas with the identity chip in the top bar (Alice admin, Bob manager, Eva auditor, Frank viewer, Grace/Hana KYC, Ivan payments, Jia experiments, Kai director) and the server re-authorizes every request for that role.
+
+**State is in-memory seed data** — it resets when the dev process restarts, and multi-step flows/approvals can lose state across serverless instances on hosted previews. For the full demo (including approval pause/resume), run locally and follow the timed walkthrough in `DEMO_SCRIPT.md`.
 
 Optional environment variables (demo fallbacks are used when absent): `SESSION_SECRET`, `DOCUMENT_ENCRYPTION_KEY`, `DOCUMENT_KEY_ID`, `STREAM_SECRET`.
 

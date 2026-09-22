@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo } from "react"
-import { Database, Lock, ShieldCheck } from "lucide-react"
+import { useMemo, useRef, useState } from "react"
+import { Database, Lock, ShieldCheck, Upload } from "lucide-react"
 import { Notice } from "@/components/data-ui"
 import { useSession } from "@/components/session-provider"
 import { Badge } from "@/components/ui/badge"
@@ -153,11 +153,7 @@ export function ComponentRenderer({
       )
     }
     case "document_uploader":
-      return (
-        <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-muted-foreground">
-          Drop KYC evidence here · AES-256-GCM at rest · SHA-256 checksum · residency + retention applied · single-use download grants
-        </div>
-      )
+      return <DocumentUploader instance={instance} />
     case "audit_trail":
       return <AuditTrail appId={app.id} compact={compact} />
     case "filter_bar":
@@ -260,5 +256,104 @@ function AuditTrail({ appId, compact }: { appId: string; compact: boolean }) {
       ))}
       {rows.length === 0 ? <li className="px-3 py-2 text-muted-foreground">No audit events visible to you.</li> : null}
     </ul>
+  )
+}
+
+const DOCUMENT_KINDS = ["passport", "drivers_license", "proof_of_address", "source_of_funds", "selfie"] as const
+
+function DocumentUploader({ instance }: { instance: ComponentInstance }) {
+  const { can } = useSession()
+  const preferred = typeof instance.props.caseId === "string" ? instance.props.caseId : undefined
+  const { data } = useApi<{ cases: { id: string; customerName: string }[] }>("/api/kyc")
+  const kycCase = data?.cases.find((entry) => entry.id === preferred) ?? data?.cases[0]
+  const [kind, setKind] = useState<(typeof DOCUMENT_KINDS)[number]>("proof_of_address")
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [failure, setFailure] = useState<string | null>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const canUpload = can("kyc:document_upload")
+
+  const upload = async (file: File) => {
+    if (!kycCase) {
+      setFailure("No KYC case is visible to this persona for the upload to attach to.")
+      return
+    }
+    setBusy(true)
+    setFailure(null)
+    setResult(null)
+    try {
+      const form = new FormData()
+      form.set("file", file)
+      form.set("kind", kind)
+      const response = await fetch(`/api/kyc/${kycCase.id}/documents`, { method: "POST", body: form })
+      const payload = (await response.json().catch(() => ({}))) as {
+        document?: { filename: string; sha256: string; residency: string; retentionUntil: string }
+        error?: string
+      }
+      if (!response.ok || !payload.document) throw new Error(payload.error ?? `Upload failed (${response.status}).`)
+      setResult(
+        `${payload.document.filename} → ${kycCase.id} · SHA-256 ${payload.document.sha256.slice(0, 12)}… · ${payload.document.residency} · retained to ${payload.document.retentionUntil.slice(0, 10)}`,
+      )
+    } catch (caught) {
+      setFailure(caught instanceof Error ? caught.message : "Upload failed")
+    } finally {
+      setBusy(false)
+      if (input.current) input.current.value = ""
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <div
+        role="button"
+        tabIndex={canUpload ? 0 : -1}
+        className={`rounded-lg border border-dashed px-4 py-5 text-center text-xs transition-colors ${
+          canUpload ? "cursor-pointer border-primary/40 hover:bg-primary/5" : "border-border opacity-70"
+        }`}
+        onClick={() => canUpload && input.current?.click()}
+        onKeyDown={(event) => event.key === "Enter" && canUpload && input.current?.click()}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={(event) => {
+          event.preventDefault()
+          const file = event.dataTransfer.files?.[0]
+          if (canUpload && file) void upload(file)
+        }}
+      >
+        <Upload className="mx-auto mb-1.5 size-4 text-muted-foreground" />
+        {busy ? "Encrypting + uploading…" : kycCase ? `Drop evidence or click to browse · attaches to ${kycCase.id}` : "Drop KYC evidence here"}
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          AES-256-GCM at rest · SHA-256 checksum · residency + retention applied · single-use download grants
+        </div>
+        <input
+          ref={input}
+          type="file"
+          className="hidden"
+          accept="application/pdf,image/png,image/jpeg"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) void upload(file)
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          className="h-7 rounded-md border border-input bg-transparent px-2 text-[11px]"
+          value={kind}
+          disabled={!canUpload}
+          onChange={(event) => setKind(event.target.value as (typeof DOCUMENT_KINDS)[number])}
+        >
+          {DOCUMENT_KINDS.map((option) => (
+            <option key={option} value={option}>
+              {option.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
+        {canUpload ? null : <span className="text-[10px] text-muted-foreground">needs kyc:document_upload</span>}
+      </div>
+      {result ? (
+        <div className="rounded-md bg-emerald-500/10 px-2 py-1.5 font-mono text-[10px] text-emerald-700 dark:text-emerald-400">{result}</div>
+      ) : null}
+      {failure ? <Notice kind="denied">{failure}</Notice> : null}
+    </div>
   )
 }
