@@ -56,6 +56,15 @@ npm start &       # then:
 npm run smoke     # 34 persona-driven API assertions against the running server
 ```
 
+End-to-end browser coverage lives in `e2e/` and runs through Playwright (auto-starts the dev server):
+
+```bash
+npx playwright install chromium   # one-time browser download
+npm run test:e2e                  # 7 golden-path tests: refund decisions, PII masking, audit deep links, flow runs, uploader gating
+```
+
+GitHub Actions runs the unit suite + lint + typecheck + build + API smoke (`.github/workflows/ci.yml`) and the Playwright suite (`.github/workflows/e2e.yml`) on every PR and push to `main`.
+
 A critical review of what is production-ready and what is demo-only lives in `HEAD_OF_ENGINEERING_EVALUATION.md`.
 
 ## Regulatory Compliance

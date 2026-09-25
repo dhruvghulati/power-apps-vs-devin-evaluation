@@ -153,10 +153,10 @@ export default function RefundsPage() {
                                   onChange={(event) => setNotes((current) => ({ ...current, [refund.id]: event.target.value }))}
                                 />
                                 <div className="flex gap-2">
-                                  <Button size="sm" disabled={busy === refund.id} onClick={() => void decide(refund, "approved")}>
+                                  <Button size="sm" disabled={busy === refund.id || !(notes[refund.id] ?? "").trim()} onClick={() => void decide(refund, "approved")}>
                                     Approve
                                   </Button>
-                                  <Button size="sm" variant="outline" disabled={busy === refund.id} onClick={() => void decide(refund, "rejected")}>
+                                  <Button size="sm" variant="outline" disabled={busy === refund.id || !(notes[refund.id] ?? "").trim()} onClick={() => void decide(refund, "rejected")}>
                                     Reject
                                   </Button>
                                 </div>
