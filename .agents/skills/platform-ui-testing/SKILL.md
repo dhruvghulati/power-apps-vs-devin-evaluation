@@ -41,13 +41,13 @@ description: End-to-end UI testing playbook for the governed Northwind maker pla
 ## Audit regression
 - Bob’s owner production-publish attempt should both show the independent-approver 403 and create `app.publish.denied` for `app_5001`.
 - Verify on `/audit-logs` with event type `app.publish` and outcome `deny`; the chain should remain verified.
-- Do not trust `/audit-logs?outcome=deny` as a pre-filtered deep link: the page initializes its React filter state independently of the URL and may show mixed outcomes. Select `deny` in the outcome dropdown and wait for `GET /api/audit?outcome=deny`.
+- `/audit-logs?outcome=deny` deep links hydrate the filter state from the URL (useSearchParams + Suspense). Verify the dropdown shows `deny` and the request is `GET /api/audit?outcome=deny`; a regression would show `All outcomes` with unfiltered rows.
 
 ## Demo-script edge cases
 - The refunds table has inline Decision controls; there is no row/detail-open affordance for “open a pending refund.”
-- The successful refund-decision POST returns the updated refund but does not include `awaitingRoles`; read the refreshed GET/UI for the next-role display instead.
+- The refund-decision POST returns `awaitingRoles` (e.g. `["MLRO / KYC Approver"]`) alongside the updated refund; assert it in the 200 response.
 - Flow approval task buttons stay disabled until Decision notes are entered. For two high-value tasks, keep notes text distinct so approve/reject evidence is unambiguous.
-- If the Flow trigger sample shows a stale JSON parse banner after edits, reload or reselect the flow so `sampleEdits` resets, then paste valid compact JSON before pressing Test.
-- `/studio` component tiles are previews, not necessarily working controls. The Secure Document Uploader tile is a static dashed `div` with no file input/drop handler; do not claim it can accept a file.
+- The flow trigger sample validates JSON live: malformed JSON shows an inline error, a red border, and disables Test; repairing it re-enables Test without reload.
+- The Secure Document Uploader tile is a real control: a file drop POSTs to `/api/kyc/{case}/documents` and shows SHA-256 + residency + retention. It requires `kyc:document_upload` — use Grace for the success path; Bob sees the disabled variant.
 - The designer supports drag-and-drop, plus-sign click, and double-click append. If synthetic browser drag only activates the thin drop-zone line without inserting, use double-click as a fallback and report the drag result separately rather than silently treating it as a drag success.
 - Hana cannot see Connections; after flow approval as Hana, switch back to Bob before demonstrating `/data-connections`.
